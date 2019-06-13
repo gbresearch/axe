@@ -6,4 +6,4 @@ AXE is a header only library, it doesn't require linking. You only need to add
 
 #include <axe.h>
 
-in your source files and set the include directory in your compiler environment to point to axe/include include.
+in your source files and set the include directory in your compiler environment to point to axe/include.
