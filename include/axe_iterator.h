@@ -295,6 +295,34 @@ namespace axe
         I get() const { return it_; }
     };
 
+    template<class F>
+    class convert_iterator<const char*,F>
+    {
+        const char* it_;
+        F fun_;
+    public:
+        using reference = const char*;
+        using value_type = char;
+        using difference_type = const char*;
+        using pointer = const char*;
+        using iterator_category = std::forward_iterator_tag;
+
+        convert_iterator(const char* it, F fun) : it_(it), fun_(std::move(fun)) {}
+        convert_iterator& operator++ () { ++it_; return *this; }
+        convert_iterator operator++ (int) { auto tmp = *this; ++it_; return tmp; }
+        value_type operator* () const
+        {
+            static_assert(std::is_convertible<decltype(fun_(*it_)), value_type>::value,
+                "Function return type must be convertible to value_type");
+            return fun_(*it_);
+        }
+
+        bool operator== (const convert_iterator& other) const { return it_ == other.it_; }
+        bool operator!= (const convert_iterator& other) const { return !operator==(other); }
+        convert_iterator& operator= (const convert_iterator& i) { it_ = i.it_; fun_ = i.fun_; return *this; }
+        const char* get() const { return it_; }
+    };
+
     //-------------------------------------------------------------------------
     template<class I, template<class, class> class C = std::vector, class A = std::allocator<typename I::value_type>>
     class input_buffer
