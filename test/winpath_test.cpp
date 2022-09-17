@@ -26,42 +26,45 @@
 //  DEALINGS IN THE SOFTWARE.
 //-----------------------------------------------------------------------------
 
-#pragma once
+#include <string>
+#include <map>
+#include <vector>
+#include <iostream>
+#pragma warning(disable:4503)
+#include "../include/axe.h"
 
-
-#if defined(__clang__)
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wlogical-op-parentheses"
-#pragma clang diagnostic ignored "-Wc++1z-extensions"
-#elif defined(__GNUC__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wlogical-op"
-#pragma GCC diagnostic ignored "-Wparentheses"
-#endif
-
-#include <functional>
-#include <iterator>
-#include <utility>
-
-#include <tuple>
-#include <variant>
-#include <optional>
-
-#include "axe_macro.h"
-#include "axe_composite_function.h"
-#include "axe_terminal_function.h"
-#include "axe_operator.h"
-#include "axe_extractor_function.h"
-#include "axe_predicate_function.h"
-#include "axe_numeric_function.h"
-#include "axe_expression.h"
-#include "axe_shortcut.h"
-#include "axe_iterator.h"
-#include "axe_exception.h"
-#include "axe_utility.h"
-
-#if defined(__clang__)
-#pragma clang diagnostic pop
-#elif defined(__GNUC__)
-#pragma GCC diagnostic pop
-#endif
+template<class I>
+void print_paths(I i1, I i2)
+{
+    using namespace axe;
+    using namespace axe::shortcuts;
+    // spaces are allowed in quoted paths only
+    // illegal path characters
+    auto illegal = r_any("/?<>\\:*|\"");
+    // end of line characters
+    auto endl = r_any("\n\r");
+    // define path characters
+    auto path_chars = _ - illegal - _hs - endl;
+    // windows path can start with a server name or letter
+    auto start_server = "\\\\" & +path_chars - '\\';
+    auto start_drive = r_alpha() & ':';
+    auto simple_path = (start_server | start_drive) & *('\\' & +path_chars);
+    auto quoted_path = '"' & (start_server | start_drive) &
+        *('\\' & +(_hs | path_chars)) & '"';
+    // path can be either simple or quoted
+    auto path = simple_path | quoted_path;
+    // rule to extract all paths
+    std::vector<std::wstring> paths;
+    size_t length = 0;
+    auto extract_paths = *(*(r_any() - (path >> e_push_back(paths) >> e_length(length)))
+        & r_advance(length));
+    // perform extraction
+    extract_paths(i1, i2);
+    // print extracted paths
+    std::wcout << L"\nExtracted paths:\n";
+    std::for_each(paths.begin(), paths.end(),
+        [](const std::wstring& s)
+    {
+        std::wcout << s << L'\n';
+    });
+}

@@ -26,42 +26,45 @@
 //  DEALINGS IN THE SOFTWARE.
 //-----------------------------------------------------------------------------
 
-#pragma once
+#include <iostream>
+#include <string>
+#include <sstream>
+#include "../include/axe.h"
 
+using namespace axe;
+using namespace shortcuts;
 
-#if defined(__clang__)
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wlogical-op-parentheses"
-#pragma clang diagnostic ignored "-Wc++1z-extensions"
-#elif defined(__GNUC__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wlogical-op"
-#pragma GCC diagnostic ignored "-Wparentheses"
-#endif
+auto csv(const std::string& text)
+{
+    // comma separator including trailing spaces
+    auto cvs_separator = *_hs & ',';
+    // rule for comma separated value
+    auto csv_value = *_hs & +(_ - cvs_separator - _endl)
+        >> [](auto i1, auto i2)
+    {
+        std::cout << "<" << std::string(i1, i2) << ">";
+    };
 
-#include <functional>
-#include <iterator>
-#include <utility>
+    // rule for single string of comma separated values
+    auto line = csv_value % cvs_separator
+        & _endl >> [] { std::cout << "\n"; };
 
-#include <tuple>
-#include <variant>
-#include <optional>
+    // file contaning multiple csv lines
+    auto csv_file = +line & _z
+        | axe::r_fail([](auto i1, auto i2) 
+        {
+            std::cout << "\nFailed: " << std::string(i1, i2);
+        });
 
-#include "axe_macro.h"
-#include "axe_composite_function.h"
-#include "axe_terminal_function.h"
-#include "axe_operator.h"
-#include "axe_extractor_function.h"
-#include "axe_predicate_function.h"
-#include "axe_numeric_function.h"
-#include "axe_expression.h"
-#include "axe_shortcut.h"
-#include "axe_iterator.h"
-#include "axe_exception.h"
-#include "axe_utility.h"
+    parse(csv_file, text);
+}
 
-#if defined(__clang__)
-#pragma clang diagnostic pop
-#elif defined(__GNUC__)
-#pragma GCC diagnostic pop
-#endif
+void test_cvs()
+{
+    std::cout << "--------------------------------------------------------test_cvs:\n";
+    auto text = std::string(R"*(Year, Make, Model, Trim, Length 
+2010,Ford,E350, Wagon Passenger Van ,212.0
+2011 , Toyota, Tundra, CREWMAX, 228.7 )*");
+    csv(text);
+    std::cout << "-----------------------------------------------------------------\n";
+}

@@ -26,42 +26,33 @@
 //  DEALINGS IN THE SOFTWARE.
 //-----------------------------------------------------------------------------
 
-#pragma once
+#include <string>
+#include <map>
+#include <vector>
+#include <iostream>
+#pragma warning(disable:4503)
+#include "../include/axe.h"
 
 
-#if defined(__clang__)
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wlogical-op-parentheses"
-#pragma clang diagnostic ignored "-Wc++1z-extensions"
-#elif defined(__GNUC__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wlogical-op"
-#pragma GCC diagnostic ignored "-Wparentheses"
-#endif
+void test_expression()
+{
+    std::cout << "--------------------------------------------------------test_expression:\n";
+    using namespace axe;
+    using namespace axe::shortcuts;
+    auto d = 0.0;
+    auto ex_rule = r_skip(r_expression(d), _ws) & _z | r_fail([](auto i1, auto i2, auto i3)
+    {
+        std::cout << "failed at position !:\n"
+            << std::string(i1, i2) << '!' << std::string(i2, i3) << "\n";
+    });
 
-#include <functional>
-#include <iterator>
-#include <utility>
-
-#include <tuple>
-#include <variant>
-#include <optional>
-
-#include "axe_macro.h"
-#include "axe_composite_function.h"
-#include "axe_terminal_function.h"
-#include "axe_operator.h"
-#include "axe_extractor_function.h"
-#include "axe_predicate_function.h"
-#include "axe_numeric_function.h"
-#include "axe_expression.h"
-#include "axe_shortcut.h"
-#include "axe_iterator.h"
-#include "axe_exception.h"
-#include "axe_utility.h"
-
-#if defined(__clang__)
-#pragma clang diagnostic pop
-#elif defined(__GNUC__)
-#pragma GCC diagnostic pop
-#endif
+    std::string exp{ R"*(1+ 2/3* (4.0/5.0+ 3.14) )*" };
+    
+    if (parse(ex_rule, exp).matched)
+        std::cout << "parsing passed: " << d;
+    else
+        std::cout << "parsing failed";
+    std::cout << "\n";
+    std::cout << "parse_expression: " << parse_expression(exp, 0.0) << "\n";
+    std::cout << "-----------------------------------------------------------------\n";
+}
