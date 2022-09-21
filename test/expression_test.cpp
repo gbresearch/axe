@@ -26,42 +26,21 @@
 //  DEALINGS IN THE SOFTWARE.
 //-----------------------------------------------------------------------------
 
-#pragma once
+#include <string>
+#include <map>
+#include <vector>
+#pragma warning(disable:4503)
+#include "../include/axe.h"
+#include <yadro/util/gbtest.h>
 
 
-#if defined(__clang__)
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wlogical-op-parentheses"
-#pragma clang diagnostic ignored "-Wc++1z-extensions"
-#elif defined(__GNUC__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wlogical-op"
-#pragma GCC diagnostic ignored "-Wparentheses"
-#endif
+namespace
+{
+    using namespace gb::yadro::util;
 
-#include <functional>
-#include <iterator>
-#include <utility>
-
-#include <tuple>
-#include <variant>
-#include <optional>
-
-#include "axe_macro.h"
-#include "axe_composite_function.h"
-#include "axe_terminal_function.h"
-#include "axe_operator.h"
-#include "axe_extractor_function.h"
-#include "axe_predicate_function.h"
-#include "axe_numeric_function.h"
-#include "axe_expression.h"
-#include "axe_shortcut.h"
-#include "axe_iterator.h"
-#include "axe_exception.h"
-#include "axe_utility.h"
-
-#if defined(__clang__)
-#pragma clang diagnostic pop
-#elif defined(__GNUC__)
-#pragma GCC diagnostic pop
-#endif
+    GB_TEST(axe, test_expression)
+    {
+        std::string exp{ R"**(1+ 3/2* (4.0/5.0+ 3.14) )**" };
+        gbassert(axe::parse_expression(exp, 0.0) == 6.91);
+    }
+}

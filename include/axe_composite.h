@@ -1,5 +1,5 @@
 //-----------------------------------------------------------------------------
-//  Copyright (C) 2011-2018, GB Research, LLC (www.gbresearch.com)
+//  Copyright (C) 2011-2022, Gene Bushuyev
 //  
 //  Boost Software License - Version 1.0 - August 17th, 2003
 //
@@ -102,16 +102,6 @@ namespace axe
 
         template<class A, class...T>
         auto make_variant(std::variant<T...>&& v) { return make_variant_helper<0, A>(std::move(v)); }
-
-
-        // result type of parse_tree invocation
-        template<class R, class I>
-        using parse_tree_result_t = decltype(parse_tree_invoke(std::declval<R>(), it_pair<I>{}));
-
-        // return data type of extracting rule
-        template<class R, class I>
-        using parse_tree_data_t = typename parse_tree_result_t<R,I>::data_t;
-
     }
 
     //-----------------------------------------------------------------------------

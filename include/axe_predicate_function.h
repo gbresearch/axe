@@ -1,5 +1,5 @@
 //-----------------------------------------------------------------------------
-//  Copyright (C) 2011-2018, GB Research, LLC (www.gbresearch.com)
+//  Copyright (C) 2011-2022, Gene Bushuyev
 //  
 //  Boost Software License - Version 1.0 - August 17th, 2003
 //
