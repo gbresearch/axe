@@ -41,7 +41,7 @@ using namespace axe::shortcuts;
 // examples using parse_tree function
 
 //-----------------------------------------------------------------------------
-auto print_zip(const std::string& text)
+auto find_zip(const std::string& text)
 {
     std::ostringstream ss;
 
@@ -71,7 +71,7 @@ auto print_zip(const std::string& text)
 }
 
 //-----------------------------------------------------------------------------
-auto print_tel(const std::string& text)
+auto find_tel(const std::string& text)
 {
     std::ostringstream ss;
 
@@ -115,7 +115,7 @@ namespace
 94307)*");
 
         // both direct extraction and parse_tree functions should return the same results
-        gbassert(print_zip(zips) == R"*(94302
+        gbassert(find_zip(zips) == R"*(94302
 94303-1011
 94309
 94301
@@ -142,7 +142,7 @@ Phone: 408-278-7400
 94307)*");
 
         // both direct extraction and parse_tree functions should return the same results
-        gbassert(print_tel(tels) == R"*((650)329-2100
+        gbassert(find_tel(tels) == R"*((650)329-2100
 650-329-2258
 650-617-3120
 408-278-7400
