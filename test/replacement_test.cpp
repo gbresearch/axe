@@ -29,8 +29,8 @@
 #include <string>
 #include <map>
 #include <vector>
-#include <iostream>
 #include <tuple>
+#include <yadro/util/gbtest.h>
 #pragma warning(disable:4503)
 #include "../include/axe.h"
 
@@ -69,17 +69,23 @@ auto replace(const std::string& source,
     return replace(source, axe::r_str(target), replacement);
 }
 
-void test_replacement()
+namespace
 {
-    std::cout << "--------------------------------------------------------test_replacement:\n";
-    auto source = R"*(
-    This example shows how to replace all occurencies of abracadabra 
+    using namespace gb::yadro::util;
+
+    GB_TEST(axe, test_replacement)
+    {
+        auto source = R"*(
+    This example shows how to replace all occurencies of abracadabra
     with something good. You should only see abracadabra in the output string.
     )*";
+        auto golden = R"*(
+    This example shows how to replace all occurencies of something good
+    with something good. You should only see something good in the output string.
+    )*";
 
-    std::cout << source;
-    auto replacement = replace(source, "abracadabra", "something good");
-    std::cout << "\nreplaced " << std::get<1>(replacement) << " occurences\n";
-    std::cout << std::get<0>(replacement);
-    std::cout << "\n-----------------------------------------------------------------\n";
+        auto replacement = replace(source, "abracadabra", "something good");
+        gbassert(std::get<1>(replacement) == 2);
+        gbassert(std::get<0>(replacement) == golden);
+    }
 }

@@ -26,45 +26,54 @@
 //  DEALINGS IN THE SOFTWARE.
 //-----------------------------------------------------------------------------
 
-#include <iostream>
 #include <string>
 #include <sstream>
 #include "../include/axe.h"
+#include <yadro/util/gbtest.h>
 
 using namespace axe;
 using namespace shortcuts;
 
 auto csv(const std::string& text)
 {
+    std::stringstream ss;
     // comma separator including trailing spaces
     auto cvs_separator = *_hs & ',';
     // rule for comma separated value
     auto csv_value = *_hs & +(_ - cvs_separator - _endl)
-        >> [](auto i1, auto i2)
+        >> [&](auto i1, auto i2)
     {
-        std::cout << "<" << std::string(i1, i2) << ">";
+        ss << "<" << std::string(i1, i2) << ">";
     };
 
     // rule for single string of comma separated values
     auto line = csv_value % cvs_separator
-        & _endl >> [] { std::cout << "\n"; };
+        & _endl >> [&] { ss << "\n"; };
 
     // file contaning multiple csv lines
     auto csv_file = +line & _z
-        | axe::r_fail([](auto i1, auto i2) 
+        | axe::r_fail([&](auto i1, auto i2) 
         {
-            std::cout << "\nFailed: " << std::string(i1, i2);
+            ss << "\nFailed: " << std::string(i1, i2);
         });
 
     parse(csv_file, text);
+    return ss;
 }
 
-void test_cvs()
+namespace
 {
-    std::cout << "--------------------------------------------------------test_cvs:\n";
-    auto text = std::string(R"*(Year, Make, Model, Trim, Length 
+    using namespace gb::yadro::util;
+
+    GB_TEST(axe, test_cvs)
+    {
+        auto ss = csv(R"*(Year, Make, Model, Trim, Length 
 2010,Ford,E350, Wagon Passenger Van ,212.0
 2011 , Toyota, Tundra, CREWMAX, 228.7 )*");
-    csv(text);
-    std::cout << "-----------------------------------------------------------------\n";
+        
+        gbassert(ss.str() == R"*(<Year><Make><Model><Trim><Length>
+<2010><Ford><E350><Wagon Passenger Van><212.0>
+<2011><Toyota><Tundra><CREWMAX><228.7>
+)*");
+    }
 }

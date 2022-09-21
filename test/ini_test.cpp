@@ -26,21 +26,22 @@
 //  DEALINGS IN THE SOFTWARE.
 //-----------------------------------------------------------------------------
 
-#include <iostream>
 #include <string>
 #include <sstream>
 #include "../include/axe.h"
+#include <yadro/util/gbtest.h>
 
 template<class I>
-void ini(I begin, I end)
+auto ini(I begin, I end)
 {
     using namespace axe::shortcuts;
+    std::ostringstream ss;
     
-    auto close_section = [] (const std::string& section)
+    auto close_section = [&] (const std::string& section)
     {
         if (!section.empty())
         {
-            std::cout << "</" << section << ">\n";
+            ss << "</" << section << ">\n";
         }
     };
 
@@ -52,7 +53,7 @@ void ini(I begin, I end)
     {
         close_section(open_section);
         open_section = section_name;
-        std::cout << "<" << open_section << ">\n";
+        ss << "<" << open_section << ">\n";
     } & _endl;
 
     // key name rule, can contain any characters, except '=' and spaces
@@ -74,7 +75,7 @@ void ini(I begin, I end)
     // rule for property line
     auto prop_line = key_rule & *_hs & '=' & value_rule & _endl >> [&]
     {
-        std::cout << "\t<property key=\"" << key << "\" value=\"" << value << "\" />\n";
+        ss << "        <property key=\"" << key << "\" value=\"" << value << "\" />\n";
     };
     
     // rule for comment
@@ -83,20 +84,24 @@ void ini(I begin, I end)
     // rule for INI file
     auto ini_file = *comment & *(section & *(prop_line | comment)) & *_ws & _z 
         >> [&] { close_section(open_section); }
-        | axe::r_fail([](auto i1, auto i2, auto i3)
+        | axe::r_fail([&](auto i1, auto i2, auto i3)
     {
-        std::cerr << "\nIni file contains errors, indicated by !\n";
-        std::cerr << std::string(i1, i2) << "!" << std::string(i2, i3);
+        ss << "\nIni file contains errors, indicated by !\n";
+        ss << std::string(i1, i2) << "!" << std::string(i2, i3);
     });
     
     // do parsing
     ini_file(begin, end);
+    return ss.str();
 }
 
-void test_ini()
+namespace
 {
-    std::cout << "--------------------------------------------------------test_ini()\n";
-    std::string text{ R"**(
+    using namespace gb::yadro::util;
+
+    GB_TEST(axe, test_ini)
+    {
+        std::string text{ R"**(
     ; This is a test of ini file
     [section1]
     key1 = 5
@@ -106,6 +111,14 @@ void test_ini()
     key = " quoted value: \"3\" "
 
 )**" };
-    ini(text.begin(), text.end());
-    std::cout << "\n-----------------------------------------------------------------\n";
+        
+        gbassert(ini(text.begin(), text.end()) == R"*(<section1>
+        <property key="key1" value="5" />
+        <property key="key2" value="value" />
+</section1>
+<section2>
+        <property key="key" value=" quoted value: \"3\" " />
+</section2>
+)*");
+    }
 }

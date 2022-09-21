@@ -29,42 +29,61 @@
 #include <string>
 #include <map>
 #include <vector>
-#include <iostream>
+#include <sstream>
+#include <yadro/util/gbtest.h>
 #pragma warning(disable:4503)
 #include "../include/axe.h"
 
-template<class I>
-void print_paths(I i1, I i2)
+auto find_paths(const std::wstring& path_string)
 {
     using namespace axe;
     using namespace axe::shortcuts;
+    std::wostringstream ss;
+
     // spaces are allowed in quoted paths only
+
     // illegal path characters
-    auto illegal = r_any("/?<>\\:*|\"");
+    auto illegal = r_any("/?<>\\:*|\",");
+
     // end of line characters
     auto endl = r_any("\n\r");
+
     // define path characters
     auto path_chars = _ - illegal - _hs - endl;
+
     // windows path can start with a server name or letter
     auto start_server = "\\\\" & +path_chars - '\\';
     auto start_drive = r_alpha() & ':';
     auto simple_path = (start_server | start_drive) & *('\\' & +path_chars);
     auto quoted_path = '"' & (start_server | start_drive) &
         *('\\' & +(_hs | path_chars)) & '"';
+
     // path can be either simple or quoted
     auto path = simple_path | quoted_path;
+
     // rule to extract all paths
     std::vector<std::wstring> paths;
-    size_t length = 0;
-    auto extract_paths = *(*(r_any() - (path >> e_push_back(paths) >> e_length(length)))
-        & r_advance(length));
+    auto extract_paths = *(_ - path) % (path >> e_push_back(paths)) & _z;
+
     // perform extraction
-    extract_paths(i1, i2);
+    extract_paths(std::begin(path_string), std::end(path_string));
+
     // print extracted paths
-    std::wcout << L"\nExtracted paths:\n";
     std::for_each(paths.begin(), paths.end(),
-        [](const std::wstring& s)
+        [&](const std::wstring& s)
     {
-        std::wcout << s << L'\n';
+        ss << s << L' ';
     });
+
+    return ss.str();
+}
+
+namespace
+{
+    using namespace gb::yadro::util;
+
+    GB_TEST(axe, test_winpath)
+    {
+        gbassert(find_paths(LR"*(not-a-path, c:\a\b\c, \\server\a\b\c, "c:\quoted path")*") == LR"*(c:\a\b\c \\server\a\b\c "c:\quoted path" )*");
+    }
 }

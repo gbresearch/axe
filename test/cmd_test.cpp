@@ -29,64 +29,85 @@
 #include <string>
 #include <map>
 #include <vector>
-#include <iostream>
+#include <sstream>
 #pragma warning(disable:4503)
 #include "../include/axe.h"
+#include <yadro/util/gbtest.h>
 
-void parse_cmd_line(const std::string& cmd)
+struct parsed_cmd
+{
+    bool matched;
+    std::string cmd_error;
+    std::string exe_name;
+    std::map<std::string, std::string> key_map;
+    std::vector<std::string> parameters;
+};
+
+parsed_cmd parse_cmd_line(const std::string& cmd)
 {
     using namespace axe;
     using namespace axe::shortcuts;
 
     // data to be gathered
-    std::string exe_name;
-    std::map<std::string, std::string> key_map;
-    std::vector<std::string> parameters;
+    parsed_cmd res{};
     
     // executable rule: file.extension
     auto executable = r_alnumstr() & *('.' & r_alnumstr());
     
     // key rule
     std::string key_name;
-    auto key = r_alnumstr() >> key_name >> [&]() { key_map[key_name]; };
+    auto key = r_alnumstr() >> key_name >> [&]() { res.key_map[key_name]; };
     
     // value rule
     auto value = r_alnumstr() >> [&](auto i1, auto i2)
-    { key_map[key_name] = std::string(i1, i2); };
+    { res.key_map[key_name] = std::string(i1, i2); };
 
     // parameter rule
-    auto parameter = r_alnumstr() >> e_push_back(parameters);
+    auto parameter = r_alnumstr() >> e_push_back(res.parameters);
 
     // rule for key-value pairs
     auto key_value = '-' & key & ~(*_s & '=' & *_s & value);
-    auto command_line = executable >> exe_name
+    auto command_line = executable >> res.exe_name
         & *(+_s & key_value)
         & *(+_s & parameter) & _endl
-        | r_fail([](auto, auto i2, auto i3)
+        | r_fail([&](auto, auto i2, auto i3)
     { 
-        std::cout << "Failed to parse portion of command line: " << std::string(i2, i3) 
-            << std::endl; 
+        res.cmd_error.assign(i2, i3);
     });
 
     auto result = command_line(cmd.begin(), cmd.end());
-    
-    if (result.matched)
-    {
-        std::cout << "Matched string: " << std::string(cmd.begin(), result.position) 
-            << std::endl;
-        std::cout << "Executable: " << exe_name << std::endl;
-        std::cout << "Key-value pairs:" << std::endl;
-        for (auto& i : key_map)
-            std::cout << "\t" << i.first << " = " << i.second << std::endl;
-        std::cout << "Parameters:" << std::endl;
-        for (auto& p : parameters)
-            std::cout << "\t" << p << std::endl;
-    }
+    res.matched = result.matched;
+    return res;
 }
 
-void test_cmd()
+namespace
 {
-    std::cout << "--------------------------------------------------------test_cmd:\n";
-    parse_cmd_line("command.exe -t=123 -h -p = p_value one two three");
-    std::cout << "-----------------------------------------------------------------\n";
+    GB_TEST(axe, test_cmd)
+    {
+        using namespace gb::yadro::util;
+        auto res = parse_cmd_line("command.exe -t=123 -h -p = p_value one two three");
+        gbassert(res.matched);
+        gbassert(res.exe_name == "command.exe");
+        std::stringstream ss;
+        ss << "Key-value pairs:" << std::endl;
+        for (auto& i : res.key_map)
+            ss << "    " << i.first << " = " << i.second << std::endl;
+        ss << "Parameters:" << std::endl;
+        for (auto& p : res.parameters)
+            ss << "    " << p << std::endl;
+        
+        auto golden = R"*(Key-value pairs:
+    h = 
+    p = p_value
+    t = 123
+Parameters:
+    one
+    two
+    three
+)*";
+        gbassert(ss.str() == golden);
+        res = parse_cmd_line(".wrong.");
+        gbassert(!res.matched);
+        gbassert(res.cmd_error == ".wrong.");
+    }
 }

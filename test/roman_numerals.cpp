@@ -29,14 +29,16 @@
 #include <string>
 #include <map>
 #include <vector>
-#include <iostream>
+#include <sstream>
+#include <yadro/util/gbtest.h>
 #pragma warning(disable:4503)
 #include "../include/axe.h"
 
-void parse_roman(const std::string& txt)
+auto parse_roman(const std::string& txt)
 {
     using namespace axe;
     using namespace axe::shortcuts;
+    std::ostringstream ss;
 
     unsigned result = 0;
     // thousands
@@ -61,18 +63,20 @@ void parse_roman(const std::string& txt)
     auto ones = value9 | value4 | ~value5 & r_many(value1, 0, 3);
     // a string of roman numerals separated by spacces
     auto roman = ((thousands & ~hundreds & ~tens & ~ones)
-        >> [&result] { std::cout << result << ' '; result = 0; })
-        % _s;
+        >> [&] { ss << result << ' '; result = 0; })
+        % +_s;
 
     parse(roman, txt);
+    return ss.str();
 }
 
-void test_roman()
+namespace
 {
-    // test parser
-    std::cout << "--------------------------------------------------------test_roman:\n";
-    std::string txt("I  MMCCCLVI MMMCXXIII XXIII LVI MMMCDLVII DCCLXXXVI DCCCXCIX MMMDLXVII");
-    std::cout << txt << "\n";
-    parse_roman(txt);
-    std::cout << "\n-----------------------------------------------------------------\n";
+    using namespace gb::yadro::util;
+
+    GB_TEST(axe, test_roman)
+    {
+        auto numerals = "I  MMCCCLVI MMMCXXIII XXIII LVI MMMCDLVII DCCLXXXVI DCCCXCIX MMMDLXVII";
+        gbassert(parse_roman(numerals) == "1 2356 3123 23 56 3457 786 899 3567 ");
+    }
 }

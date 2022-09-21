@@ -26,8 +26,9 @@
 //  DEALINGS IN THE SOFTWARE.
 //-----------------------------------------------------------------------------
 
-#include <iostream>
-#include <cassert>
+#include <stdexcept>
+#include <sstream>
+#include <yadro/util/gbtest.h>
 
 #include "../include/axe.h"
 
@@ -75,32 +76,49 @@ auto wildcard(const std::string& target)
     return result;
 }
 
-void test_wildcard()
+namespace
 {
-    std::cout << "--------------------------------------------------------test_wildcard:\n";
-    auto grep = [](auto& wc, auto& text)
+    using namespace gb::yadro::util;
+
+    GB_TEST(axe, test_wildcard)
     {
-        std::cout << "\n> grep \"" << wc << "\"\n";
-        auto print = [](auto i1, auto i2)
+        auto grep = [](auto& wc, auto& text)
         {
-            std::cout << std::string(i1, i2) << "\n";
+            std::ostringstream ss;
+
+            ss << ">grep \"" << wc << "\"\n";
+            auto print = [&](auto i1, auto i2)
+            {
+                ss << std::string(i1, i2) << "\n";
+            };
+
+            // find all substrings matching the wildcards
+            auto res = axe::parse(+axe::r_find(wildcard(wc) >> print), text);
+            if (!res.matched)
+                ss << wc << " -- not found\n";
+
+            return ss.str();
         };
 
-        // find all substrings matching the wildcards
-        auto res = axe::parse(+axe::r_find(wildcard(wc) >> print), text);
-        if (!res.matched)
-            std::cout << wc << " -- not found\n";
-    };
-
-    const std::string text(R"**(The asterisk in a wildcard matches any character zero or more times.
+        const std::string text(R"**(The asterisk in a wildcard matches any character zero or more times.
 For example, "comp*" matches anything beginning with "comp" which means
 "comp", "complete", and "computer" are all matched.)**");
 
-    std::cout << text << "\n";
-
-    grep("asterisk*wildcard", text);
-    grep("*asterisk*times", text);
-    grep("\"comp*\"", text);
-    grep("abracadabra", text);
-    std::cout << "\n-----------------------------------------------------------------\n";
+        gbassert(grep("asterisk*wildcard", text) == R"*(>grep "asterisk*wildcard"
+asterisk in a wildcard
+)*");
+        gbassert(grep("*asterisk*times", text) == R"*(>grep "*asterisk*times"
+The asterisk in a wildcard matches any character zero or more times
+)*");
+        gbassert(grep("\"comp*\"", text) == R"*(>grep ""comp*""
+"comp*"
+"comp"
+"comp"
+"complete"
+"computer"
+)*");
+        gbassert(grep("abracadabra", text) == R"*(>grep "abracadabra"
+abracadabra -- not found
+)*");
+    }
 }

@@ -29,30 +29,18 @@
 #include <string>
 #include <map>
 #include <vector>
-#include <iostream>
 #pragma warning(disable:4503)
 #include "../include/axe.h"
+#include <yadro/util/gbtest.h>
 
 
-void test_expression()
+namespace
 {
-    std::cout << "--------------------------------------------------------test_expression:\n";
-    using namespace axe;
-    using namespace axe::shortcuts;
-    auto d = 0.0;
-    auto ex_rule = r_skip(r_expression(d), _ws) & _z | r_fail([](auto i1, auto i2, auto i3)
-    {
-        std::cout << "failed at position !:\n"
-            << std::string(i1, i2) << '!' << std::string(i2, i3) << "\n";
-    });
+    using namespace gb::yadro::util;
 
-    std::string exp{ R"*(1+ 2/3* (4.0/5.0+ 3.14) )*" };
-    
-    if (parse(ex_rule, exp).matched)
-        std::cout << "parsing passed: " << d;
-    else
-        std::cout << "parsing failed";
-    std::cout << "\n";
-    std::cout << "parse_expression: " << parse_expression(exp, 0.0) << "\n";
-    std::cout << "-----------------------------------------------------------------\n";
+    GB_TEST(axe, test_expression)
+    {
+        std::string exp{ R"**(1+ 3/2* (4.0/5.0+ 3.14) )**" };
+        gbassert(axe::parse_expression(exp, 0.0) == 6.91);
+    }
 }

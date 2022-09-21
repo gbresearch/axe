@@ -26,19 +26,13 @@
 //  DEALINGS IN THE SOFTWARE.
 //-----------------------------------------------------------------------------
 
-#include "reference.h"
+#include <yadro/util/gbtest.h>
 
 int main()
 {
-    test_zip();
-    test_tel();
-    test_cvs();
-    test_ini();
-    test_cmd();
-    test_roman();
-    test_json();
-    test_replacement(); 
-    test_format();
-    test_expression();
-    test_wildcard();
+    using namespace gb::yadro::util;
+    tester::set_verbose(true);
+    tester::set_logger("axe-test.log", std::cout);
+    tester::set_policy(std::launch::async);
+    return tester::run() ? 0 : -1;
 }

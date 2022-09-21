@@ -26,33 +26,36 @@
 //  DEALINGS IN THE SOFTWARE.
 //-----------------------------------------------------------------------------
 
-#include <iostream>
+#include <sstream>
 #include <string>
-#include "../include/axe.h"
-#include "reference.h"
 #include <tuple>
 #include <optional>
 #include <vector>
+#include <yadro/util/gbtest.h>
+#include "../include/axe.h"
 
 using namespace axe;
 using namespace axe::shortcuts;
 
 //-----------------------------------------------------------------------------
-void print_zip(const std::string& text)
+// examples using parse_tree function
+
+//-----------------------------------------------------------------------------
+auto print_zip(const std::string& text)
 {
+    std::ostringstream ss;
+
     // rule to match zip code
     auto zip_rule = _d * 5 & ~('-' & _d * 4) & !_d;
     
     // extracting rule
     auto text_rule = *(*(_ - zip_rule) & zip_rule 
-        >> [](auto i1, auto i2) 
+        >> [&](auto i1, auto i2) 
     { 
-        std::cout << std::string(i1, i2) << "\n"; 
+        ss << std::string(i1, i2) << "\n"; 
     });
 
     parse(text_rule, text);
-
-    std::cout << "Using parse_tree function:\n";
 
     auto text_rule1 = *(*(_ - zip_rule) & zip_rule);
     
@@ -61,13 +64,17 @@ void print_zip(const std::string& text)
     // we are only interested in second value in that tuple corresponding to zip_rule
     for (auto& d : parse_tree(text_rule1, text).data)
     {
-        std::cout << axe::get_as<std::string>(std::get<1>(d)) << "\n";
+        ss << axe::get_as<std::string>(std::get<1>(d)) << "\n";
     }
+
+    return ss.str();
 }
 
 //-----------------------------------------------------------------------------
-void print_tel(const std::string& text)
+auto print_tel(const std::string& text)
 {
+    std::ostringstream ss;
+
     // four common telephone formats
     auto tel1 = '(' & _d * 3 & ')' & _d * 3 & '-' & _d * 4;
     auto tel2 = _d * 3 & '-' & _d * 3 & '-' & _d * 4;
@@ -77,46 +84,72 @@ void print_tel(const std::string& text)
     auto tel = tel1 | tel2 | tel3 | tel4;
     // extracting rule
     auto text_rule = *(*(_ - tel) & tel
-        >> [](auto i1, auto i2)
+        >> [&](auto i1, auto i2)
     {
-        std::cout << std::string(i1, i2) << "\n";
+        ss << std::string(i1, i2) << "\n";
     });
 
     parse(text_rule, text);
 
-    std::cout << "Using parse_tree function:\n";
-
     // using parse tree for data extraction
     for (auto p : parse_tree(*(*(_ - tel) & tel), text).data)
     {
-        std::cout << get_as<std::string>(std::get<1>(p)) << "\n";
+        ss << get_as<std::string>(std::get<1>(p)) << "\n";
     }
+
+    return ss.str();
 }
 
-void test_zip()
+namespace
 {
-    std::cout << "--------------------------------------------------------test_zip:\n";
-    auto zips = std::string(R"*(94302 Zip Code
+    using namespace gb::yadro::util;
+
+    GB_TEST(axe, test_zip)
+    {
+        auto zips = std::string(R"*(94302 Zip Code
 94303-1011 Zip Code
 94309 Zip Code
 94301 Zip Code
 94304 Zip Code
 94306 Zip Code
-94307)*"
-);
-    print_zip(zips);
-    std::cout << "-----------------------------------------------------------------\n";
-}
+94307)*");
 
-void test_tel()
-{
-    std::cout << "--------------------------------------------------------test_tel:\n";
-    auto tels = std::string(R"*(call City Hall at (650)329-2100
+        // both direct extraction and parse_tree functions should return the same results
+        gbassert(print_zip(zips) == R"*(94302
+94303-1011
+94309
+94301
+94304
+94306
+94307
+94302
+94303-1011
+94309
+94301
+94304
+94306
+94307
+)*");
+    }
+
+    GB_TEST(axe, test_tel)
+    {
+        auto tels = std::string(R"*(call City Hall at (650)329-2100
 Police Desk at 329-2406
 Phone: 650-329-2258, Fax: 650-617-3120
 1505 Meridian, San Jose, CA
 Phone: 408-278-7400
 94307)*");
-    print_tel(tels);
-    std::cout << "-----------------------------------------------------------------\n";
+
+        // both direct extraction and parse_tree functions should return the same results
+        gbassert(print_tel(tels) == R"*((650)329-2100
+650-329-2258
+650-617-3120
+408-278-7400
+(650)329-2100
+650-329-2258
+650-617-3120
+408-278-7400
+)*");
+    }
 }

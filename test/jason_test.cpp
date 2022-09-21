@@ -29,14 +29,16 @@
 #include <string>
 #include <map>
 #include <vector>
-#include <iostream>
+#include <sstream>
 #pragma warning(disable:4503)
 #include "../include/axe.h"
+#include <yadro/util/gbtest.h>
 
 template<class I>
-void parse_json(I begin, I end)
+auto parse_json(I begin, I end)
 {
     using namespace axe::shortcuts;
+    std::ostringstream ss;
 
     auto json_hex = axe::r_many(axe::r_hex(), 4);
     auto json_escaped = "\""_axe | '\\' | '/' | 'b' | 'f'
@@ -48,7 +50,7 @@ void parse_json(I begin, I end)
     // instead one can create function object with recursion in operator()
     // or use polymorphic r_rule class, which performs type erasure
     axe::r_rule<I> json_value;
-    // json_value must be wrapped with std::ref because rule are taken by value
+    // json_value must be wrapped with std::ref because rules are taken by value
     auto json_array = *_ws & '['
         & (*_ws & std::ref(json_value) & *_ws) % ','
         & *_ws & ']';
@@ -61,18 +63,20 @@ void parse_json(I begin, I end)
     json_value = json_string | _double | json_object | json_array
         | "true" | "false" | "null";
     
-    parse(json_object >> [](auto i1, auto i2) 
+    parse(json_object >> [&](auto i1, auto i2) 
     {
-        std::cout << "JSON object parsed: " << std::string(i1, i2);
+        ss << "JSON object parsed:" << std::string(i1, i2);
     } & _z
-        | axe::r_fail([](auto i1, auto i2, auto i3)
+        | axe::r_fail([&](auto i1, auto i2, auto i3)
     {
-        std::cout << "parsing failed at place pointed by !\n"
+        ss << "parsing failed at place pointed by !\n"
             << std::string(i1, i2) << '!' << std::string(i2, i3);
     }), begin, end);
+
+    return ss.str();
 }
 
-void test_json()
+void _test_json()
 {
     std::cout << "--------------------------------------------------------test_json:\n";
     std::string str(R"*(
@@ -104,4 +108,68 @@ void test_json()
 
     parse_json(str.begin(), str.end());
     std::cout << "\n-----------------------------------------------------------------\n";
+}
+
+namespace
+{
+    using namespace gb::yadro::util;
+
+    GB_TEST(axe, test_json)
+    {
+        std::string str(R"*(
+{
+"category": 1,
+"sub-category": 1.1,
+"name": "inventory",
+"tags": ["warehouse","inventory"],
+"vehicles" :
+[
+        {
+        "id": 123456789,
+        "make": "Honda",
+        "model": "Ridgeline",
+        "trim": "RTL",
+        "price": 32616,
+        "tags": ["truck","V6","4WD"]
+        },
+        {
+        "id": 748201836,
+        "make": "Honda",
+        "model": "Pilot",
+        "trim": "Touring",
+        "price": 38042,
+        "tags": ["SUV","V6","4WD"]
+        }
+]
+})*");
+
+        auto res = parse_json(str.begin(), str.end());
+        auto golden = R"*(JSON object parsed:
+{
+"category": 1,
+"sub-category": 1.1,
+"name": "inventory",
+"tags": ["warehouse","inventory"],
+"vehicles" :
+[
+        {
+        "id": 123456789,
+        "make": "Honda",
+        "model": "Ridgeline",
+        "trim": "RTL",
+        "price": 32616,
+        "tags": ["truck","V6","4WD"]
+        },
+        {
+        "id": 748201836,
+        "make": "Honda",
+        "model": "Pilot",
+        "trim": "Touring",
+        "price": 38042,
+        "tags": ["SUV","V6","4WD"]
+        }
+]
+})*";
+        gbassert(res == golden);
+    }
 }

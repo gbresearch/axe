@@ -29,9 +29,11 @@
 #include <string>
 #include <map>
 #include <vector>
-#include <iostream>
+#include <sstream>
+#include <utility>
 #pragma warning(disable:4503)
 #include "../include/axe.h"
+#include <yadro/util/gbtest.h>
 
 template<class CharT>
 class format_t
@@ -39,120 +41,102 @@ class format_t
     using StringT = std::basic_string<CharT>;
 
 public:
-    format_t(format_t&& f)
-        : os(f.os), strings(std::move(f.strings)), index(f.index)
-    {
-        f.os = nullptr;
-        f.index = 0;
-    }
-
-    format_t(const StringT& format_string) : os(nullptr), index(0)
+    format_t(const StringT& format_string)
     {
         using namespace axe::shortcuts;
 
         auto percent = "%%"_axe;
-
-        auto plain_text = +(_ - "%%" - ('%' & _uint));
+        auto param_holder = '%' & _uint;
+        auto plain_text = +(_ - +percent - param_holder);
         auto format = 
             *(
-            plain_text >> axe::e_push_back(strings)
-            | "%%"_axe >> [this](auto i1, auto i2) { strings.emplace_back(i1, i2); }
-            | '%' & _uint >> axe::e_push_back(strings)
+            plain_text >> axe::e_push_back(_strings)
+            | "%%"_axe >> [&] { _strings.emplace_back(1, '%'); }
+            | param_holder >> axe::e_push_back(_strings)
             )
             & _z
             | axe::r_fail([](auto i1, auto i2)
         {
-            throw StringT(i1, i2);
+            throw std::runtime_error("parsing failed");
         });
 
         format(format_string.begin(), format_string.end());
     }
 
-    ~format_t()
+    template<class ... Ts>
+    auto operator()(Ts&&... ts) const
     {
-        flush();
-    }
+        auto strings = _strings;
+        auto index = 0;
+        
+        (substitute(strings, index, ts), ...);
 
-    void flush()
-    {
-        if (os)
-        {
-            std::for_each(strings.begin(), strings.end(),
-                [this](auto&& str) { *os << str; });
-        }
-        os = nullptr;
-    }
-
-    template<class T>
-    format_t<CharT>& operator<< (const T& t)
-    {
-        std::basic_ostringstream<CharT> ss;
-        ss << (CharT)('%') << ++index;
-        StringT index_str = ss.str();
-        bool found = false; // at least one format found
+        std::basic_string<CharT> result;
         std::for_each(strings.begin(), strings.end(),
-            [&index_str, &t, &found](StringT& str)
-        {
-            if (str == index_str)
-            {
-                str = format_t<CharT>::to_string(t);
-                found = true;
-            }
-        });
-
-        if (!found)
-        { // no format found for this argument, include it verbatim
-            strings.push_back(to_string(t));
-        }
-
-        return *this;
+            [&](auto&& str) { result += str; });
+        return result;
     }
 
 private:
-    template<class C>
-    friend format_t<C> operator<< (std::basic_ostream<C>& os, format_t<C>&& f);
-    
-    std::basic_ostream<CharT>* os;
-    std::vector<StringT> strings;
-    unsigned index;
+    std::vector<StringT> _strings;
 
     template<class T>
-    static StringT to_string(const T& t)
+    static auto to_string(const T& t)
     {
         std::basic_ostringstream<CharT> tmp;
         tmp << t;
         return tmp.str();
     }
 
-    format_t(const format_t&) = delete;
+    template<class T>
+    static auto substitute(auto& strings, auto& index, const T& t)
+    {
+        auto found = false; // at least one format found
+        auto index_str = CharT('%') + to_string(index);
+        std::for_each(strings.begin(), strings.end(),
+            [&](auto& str)
+            {
+                if (str == index_str)
+                {
+                    std::basic_ostringstream<CharT> oss;
+                    oss << t;
+                    str = oss.str();
+                    found = true;
+                }
+            });
+
+        if (!found)
+        { // no format found for this argument, include it verbatim
+            strings.push_back(to_string(t));
+        }
+        ++index;
+    }
 };
 
-template<class C>
-format_t<C> operator<< (std::basic_ostream<C>& os, format_t<C>&& f)
-{
-    f.os = &os;
-    return std::move(f);
-}
-
-format_t<char> format(std::string str)
+auto format(std::string str)
 {
     return format_t<char>(std::move(str));
 }
 
-format_t<wchar_t> format(std::wstring str)
+auto format(std::wstring str)
 {
     return format_t<wchar_t>(std::move(str));
 }
 
-void test_format()
+namespace
 {
-    // TBD
-    std::cout << "--------------------------------------------------------test_format:\n";
-    // using lvalue
-    auto fmt = format("Example 1\nCatalog #%1.\nBook Title: %2, Author: %3\n");
-    fmt << 12345 << "Alice's Adventures in Wonderland" << "Charles Lutwidge Dodgson";
-    std::cout << std::move(fmt); // operator<< is overloaded for rvalue references
-    // using rvalue
-    std::wcout << format(L"Example 2\nSymbol: %1, ROI: %2%%\n") << L"AAPL" << 380;
-    std::cout << "\n-----------------------------------------------------------------\n";
+    using namespace gb::yadro::util;
+
+    GB_TEST(axe, test_format)
+    {
+        auto fmt = format("Example 1\nCatalog #%0\nBook Title: %1\nAuthor: %2\n");
+        gbassert(fmt(12345, "Alice's Adventures in Wonderland", "Charles Lutwidge Dodgson") == R"*(Example 1
+Catalog #12345
+Book Title: Alice's Adventures in Wonderland
+Author: Charles Lutwidge Dodgson
+)*");
+        gbassert(format(L"Example 2\nSymbol: %0, ROI: %1%%\n")(L"AAPL", 380) == LR"*(Example 2
+Symbol: AAPL, ROI: 380%
+)*");
+    }
 }
