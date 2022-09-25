@@ -220,11 +220,11 @@ namespace axe
             };
             I it_;
         public:
-            typedef typename I::reference       reference;
-            typedef typename I::value_type      value_type;
-            typedef typename I::difference_type difference_type;
-            typedef typename I::pointer         pointer;
             typedef std::forward_iterator_tag   iterator_category;
+            using difference_type = typename std::iterator_traits<I>::difference_type;
+            using value_type = typename std::iterator_traits<I>::value_type;
+            using pointer = typename std::iterator_traits<I>::pointer;
+            using reference = typename std::iterator_traits<I>::reference;
 
             iterator() : invalid(true) {}
             iterator(const skip_it_pair& ip, I it) : ip_(ip), it_(it) {}
@@ -273,11 +273,11 @@ namespace axe
         F fun_;
         friend class iterator;
     public:
-        using reference = typename I::reference;
-        using value_type = typename I::value_type;
-        using difference_type = typename I::difference_type;
-        using pointer = typename I::pointer;
         using iterator_category = std::forward_iterator_tag;
+        using difference_type = typename std::iterator_traits<I>::difference_type;
+        using value_type = typename std::iterator_traits<I>::value_type;
+        using pointer = typename std::iterator_traits<I>::pointer;
+        using reference = typename std::iterator_traits<I>::reference;
 
         convert_iterator(I it, F fun) : it_(it), fun_(std::move(fun)) {}
         convert_iterator& operator++ () { ++it_; return *this; }
@@ -360,11 +360,11 @@ namespace axe
             input_buffer&   buf_;
             size_t          position_;
         public:
-            typedef typename I::reference       reference;
-            typedef typename I::value_type      value_type;
-            typedef typename I::difference_type difference_type;
-            typedef typename I::pointer         pointer;
             typedef std::forward_iterator_tag   iterator_category;
+            using difference_type = typename std::iterator_traits<I>::difference_type;
+            using value_type = typename std::iterator_traits<I>::value_type;
+            using pointer = typename std::iterator_traits<I>::pointer;
+            using reference = typename std::iterator_traits<I>::reference;
 
             iterator(input_buffer& buf, size_t position) : buf_(buf), position_(position) {}
 
