@@ -46,6 +46,8 @@ namespace axe
         using data_t =      Data;
         using iterator_t =  Iterator;
 
+        explicit operator bool() const { return matched; }
+
         result() = default;
 
         template<class D, class = decltype(Data{ std::declval<D>() })>
@@ -67,6 +69,8 @@ namespace axe
         Iterator            position;
         using data_t =      void;
         using iterator_t =  Iterator;
+
+        explicit operator bool() const { return matched; }
 
         result(bool matched, Iterator position) : matched(matched), position(position) {}
     };
