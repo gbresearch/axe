@@ -33,6 +33,7 @@
 #include <tuple>
 #include <functional>
 #include <iterator>
+#include <string>
 #include "axe_macro.h"
 #include "axe_result.h"
 

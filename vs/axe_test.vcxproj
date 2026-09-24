@@ -86,6 +86,7 @@
   <ItemGroup>
     <ClCompile Include="..\test\cmd_test.cpp" />
     <ClCompile Include="..\test\cvs_test.cpp" />
+    <ClCompile Include="..\test\depth_test.cpp" />
     <ClCompile Include="..\test\expression_test.cpp" />
     <ClCompile Include="..\test\format_test.cpp" />
     <ClCompile Include="..\test\ini_test.cpp" />
@@ -93,6 +94,7 @@
     <ClCompile Include="..\test\reference.cpp" />
     <ClCompile Include="..\test\replacement_test.cpp" />
     <ClCompile Include="..\test\roman_numerals.cpp" />
+    <ClCompile Include="..\test\utf8_test.cpp" />
     <ClCompile Include="..\test\wildcard_test.cpp" />
     <ClCompile Include="..\test\winpath_test.cpp" />
     <ClCompile Include="..\test\zip_test.cpp" />

@@ -35,15 +35,22 @@
 #include <yadro/util/gbtest.h>
 
 template<class I>
-auto parse_json(I begin, I end)
+auto parse_json(I begin, I end, size_t max_depth = 16)
 {
     using namespace axe::shortcuts;
     std::ostringstream ss;
 
     auto json_hex = axe::r_many(axe::r_hex(), 4);
+    // \uXXXX escape: UTF-16 surrogates are only valid as a high-low pair (RFC 8259, section 7)
+    auto json_high = axe::r_any("dD") & axe::r_any("89abAB") & _x & _x;
+    auto json_low = axe::r_any("dD") & axe::r_any("cdefCDEF") & _x & _x;
+    auto json_surrogate = axe::r_any("dD") & axe::r_any("89abcdefABCDEF");
+    auto json_unicode = 'u' & (json_high & "\\u"_axe & json_low | !json_surrogate & json_hex);
     auto json_escaped = "\""_axe | '\\' | '/' | 'b' | 'f'
-        | 'n' | 'r' | 't' | 'u' & json_hex;
-    auto json_char = _ - '"' - '\\' | '\\' & json_escaped;
+        | 'n' | 'r' | 't' | json_unicode;
+    // unescaped characters must be well-formed UTF-8 and not control characters
+    auto json_control = axe::r_any('\x00', '\x1f');
+    auto json_char = axe::r_utf8() - '"' - '\\' - json_control | '\\' & json_escaped;
     auto json_string = '"' & *json_char & '"';
     // definition of json_value requires recursion
     // neither 'auto' declation, nor lambda functions allow recursion
@@ -51,27 +58,40 @@ auto parse_json(I begin, I end)
     // or use polymorphic r_rule class, which performs type erasure
     axe::r_rule<I> json_value;
     // json_value must be wrapped with std::ref because rules are taken by value
-    auto json_array = *_ws & '['
-        & (*_ws & std::ref(json_value) & *_ws) % ','
-        & *_ws & ']';
-   
+    // an empty array is checked first, so no nested value is attempted for "[]"
+    auto json_array = *_ws & '[' & *_ws
+        & (']'_axe | (*_ws & std::ref(json_value) & *_ws) % ',' & ']');
+
     auto json_record = *_ws & json_string & *_ws
         & ':' & *_ws & std::ref(json_value) & *_ws;
 
-    auto json_object = *_ws & '{' & json_record % ',' & *_ws & '}';
-    
-    json_value = json_string | _double | json_object | json_array
-        | "true" | "false" | "null";
-    
-    parse(json_object >> [&](auto i1, auto i2) 
+    auto json_object = *_ws & '{' & ~(json_record % ',') & *_ws & '}';
+
+    // r_depth_limit bounds the recursion, so deeply nested input can't overflow the stack;
+    // every nested value passes through this single wrapper object, the top level value has depth 1;
+    // each level of this grammar takes about 40 KB of stack in MSVC debug build with /ZI /JMC
+    // and about 3 KB in release build,
+    // the limit must fit the stack of the parsing thread
+    json_value = axe::r_depth_limit(json_string | _double | json_object | json_array
+        | "true" | "false" | "null", max_depth);
+
+    try
     {
-        ss << "JSON object parsed:" << std::string(i1, i2);
-    } & _z
-        | axe::r_fail([&](auto i1, auto i2, auto i3)
+        parse((*_ws & std::ref(json_value) & *_ws) >> [&](auto i1, auto i2)
+        {
+            ss << "JSON parsed:" << std::string(i1, i2);
+        } & _z
+            | axe::r_fail([&](auto i1, auto i2, auto i3)
+        {
+            ss << "parsing failed at place pointed by !\n"
+                << std::string(i1, i2) << '!' << std::string(i2, i3);
+        }), begin, end);
+    }
+    catch (const axe::depth_limit_exceeded<I>& ex)
     {
-        ss << "parsing failed at place pointed by !\n"
-            << std::string(i1, i2) << '!' << std::string(i2, i3);
-    }), begin, end);
+        ss << "nesting too deep (limit " << ex.max_depth() << ") at offset "
+            << std::distance(begin, ex.position());
+    }
 
     return ss.str();
 }
@@ -144,7 +164,7 @@ namespace
 })*");
 
         auto res = parse_json(str.begin(), str.end());
-        auto golden = R"*(JSON object parsed:
+        auto golden = R"*(JSON parsed:
 {
 "category": 1,
 "sub-category": 1.1,
@@ -171,5 +191,79 @@ namespace
 ]
 })*";
         gbassert(res == golden);
+    }
+
+    bool json_ok(const std::string& str, size_t max_depth = 16)
+    {
+        return parse_json(str.begin(), str.end(), max_depth).rfind("JSON parsed:", 0) == 0;
+    }
+
+    GB_TEST(axe, test_json_valid)
+    {
+        gbassert(json_ok("{}"));
+        gbassert(json_ok("[]"));
+        gbassert(json_ok(R"( { "a" : [ ] , "b" : { } } )"));
+        gbassert(json_ok("\"scalar\""));
+        // surrogate pair (U+1F600), either case, and BMP escapes
+        gbassert(json_ok(R"(["\ud83d\ude00"])"));
+        gbassert(json_ok(R"(["\uD83D\uDE00"])"));
+        gbassert(json_ok(R"(["\u00e9\u20AC\u0000\uffff"])"));
+        gbassert(json_ok(R"(["\"\\\/\b\f\n\r\t"])"));
+        // raw multi-byte UTF-8: U+00E9, U+20AC, U+1F600, and U+10FFFF
+        gbassert(json_ok("[\"\xC3\xA9" "\xE2\x82\xAC" "\xF0\x9F\x98\x80" "\xF4\x8F\xBF\xBF\"]"));
+        // DEL is not a control character in JSON
+        gbassert(json_ok("[\"\x7f\"]"));
+    }
+
+    GB_TEST(axe, test_json_invalid)
+    {
+        // raw control characters are not allowed in strings
+        gbassert(!json_ok("[\"a\tb\"]"));
+        gbassert(!json_ok("[\"a\nb\"]"));
+        gbassert(!json_ok(std::string("[\"a\0b\"]", 7)));
+        gbassert(!json_ok("[\"\x1f\"]"));
+        // lone high surrogate, high surrogate followed by non-surrogate, lone low surrogate
+        gbassert(!json_ok(R"(["\ud83d"])"));
+        gbassert(!json_ok(R"(["\ud83dx"])"));
+        gbassert(!json_ok(R"(["\ud83d\u0041"])"));
+        gbassert(!json_ok(R"(["\ud83d\ud83d"])"));
+        gbassert(!json_ok(R"(["\ude00"])"));
+        gbassert(!json_ok(R"(["\ude00\ud83d"])"));
+        // invalid UTF-8: stray continuation, overlong, encoded surrogate, above U+10FFFF, truncated
+        gbassert(!json_ok("[\"\x80\"]"));
+        gbassert(!json_ok("[\"\xC0\xAF\"]"));
+        gbassert(!json_ok("[\"\xE0\x80\xAF\"]"));
+        gbassert(!json_ok("[\"\xED\xA0\x80\"]"));
+        gbassert(!json_ok("[\"\xF4\x90\x80\x80\"]"));
+        gbassert(!json_ok("[\"\xE2\x82\"]"));
+        gbassert(!json_ok("[\"\xFF\"]"));
+        // malformed structure
+        gbassert(!json_ok("[1,]"));
+        gbassert(!json_ok("{\"a\"}"));
+    }
+
+    GB_TEST(axe, test_json_depth)
+    {
+        // limit 16: 16 nested arrays are accepted, 17 are rejected
+        gbassert(json_ok(std::string(16, '[') + std::string(16, ']')));
+        std::string deep = std::string(17, '[') + std::string(17, ']');
+        auto res = parse_json(deep.begin(), deep.end());
+        gbassert(res == "nesting too deep (limit 16) at offset 16");
+
+        // a deeply nested hostile input doesn't overflow the stack
+        std::string hostile(100000, '[');
+        res = parse_json(hostile.begin(), hostile.end());
+        gbassert(res == "nesting too deep (limit 16) at offset 16");
+
+        // mixed objects and arrays count against the same limit
+        std::string mixed;
+        for (int i = 0; i < 40; ++i)
+            mixed += "{\"a\":[";
+        res = parse_json(mixed.begin(), mixed.end());
+        gbassert(res.rfind("nesting too deep (limit 16)", 0) == 0);
+
+        // the parser is usable after the exception
+        gbassert(json_ok("[[[1]]]", 4));
+        gbassert(!json_ok("[[[[1]]]]", 4));
     }
 }

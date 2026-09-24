@@ -59,6 +59,8 @@
 #include "axe_iterator.h"
 #include "axe_exception.h"
 #include "axe_utility.h"
+#include "axe_depth.h"
+#include "axe_utf8.h"
 
 #if defined(__clang__)
 #pragma clang diagnostic pop

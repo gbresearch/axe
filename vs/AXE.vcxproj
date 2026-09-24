@@ -85,6 +85,7 @@
     <ClInclude Include="..\include\axe.h" />
     <ClInclude Include="..\include\axe_composite.h" />
     <ClInclude Include="..\include\axe_composite_function.h" />
+    <ClInclude Include="..\include\axe_depth.h" />
     <ClInclude Include="..\include\axe_detail.h" />
     <ClInclude Include="..\include\axe_exception.h" />
     <ClInclude Include="..\include\axe_expression.h" />
@@ -102,6 +103,7 @@
     <ClInclude Include="..\include\axe_terminal.h" />
     <ClInclude Include="..\include\axe_terminal_function.h" />
     <ClInclude Include="..\include\axe_trait.h" />
+    <ClInclude Include="..\include\axe_utf8.h" />
     <ClInclude Include="..\include\axe_utility.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

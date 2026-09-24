@@ -48,8 +48,8 @@ namespace axe
         std::string msg;
         std::array<charT, buflen> str; // buffer
     public:
-        template<class T, class I>
-        failure(T&& msg, I i1, I i2) : msg(std::forward<T>(msg))
+        template<class T, class I, class I2>
+        failure(T&& msg, I i1, I2 i2) : msg(std::forward<T>(msg))
         {
             str.fill(0);
             for(size_t i = 0; i1 != i2 && i < str.size() - 1; ++i, ++i1)
@@ -87,5 +87,29 @@ namespace axe
     {
         throw failure<char>(std::move(msg));
     }
+
+    //-------------------------------------------------------------------------
+    /// depth_limit_exceeded is thrown by r_depth_limit rule when the nesting
+    /// depth of the wrapped rule exceeds the specified limit
+    /// position() returns the input position where the rejected invocation started
+    /// max_depth() returns the limit that was exceeded
+    /// the exception derives from failure, so existing handlers of failure catch it too
+    //-------------------------------------------------------------------------
+    template<class Iterator>
+    class depth_limit_exceeded : public failure<typename std::iterator_traits<Iterator>::value_type>
+    {
+        Iterator position_;
+        size_t max_depth_;
+    public:
+        template<class Iterator2>
+        depth_limit_exceeded(size_t max_depth, Iterator i1, Iterator2 i2)
+            : failure<typename std::iterator_traits<Iterator>::value_type>(
+                "rule nesting depth exceeded the limit of " + std::to_string(max_depth), i1, i2),
+            position_(i1), max_depth_(max_depth)
+        {}
+
+        Iterator position() const { return position_; }
+        size_t max_depth() const noexcept { return max_depth_; }
+    };
 
 }
