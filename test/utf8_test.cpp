@@ -29,12 +29,25 @@
 #include <string>
 #include <vector>
 #include <initializer_list>
+#include <iterator>
+#include <list>
+#include <forward_list>
+#include <type_traits>
 #include "../include/axe.h"
 #include <yadro/util/gbtest.h>
 
 namespace
 {
     using namespace gb::yadro::util;
+
+    // single-pass iterators can't restore the start of a rejected sequence, so they are not accepted
+    using stream_it = std::istreambuf_iterator<char>;
+    static_assert(!std::is_invocable_v<axe::r_utf8_t, stream_it, stream_it>);
+    static_assert(!std::is_invocable_v<axe::r_utf8str_t, stream_it, stream_it>);
+    using flist_it = std::forward_list<char>::const_iterator;
+    static_assert(std::is_invocable_v<axe::r_utf8_t, flist_it, flist_it>);
+    static_assert(std::is_invocable_v<axe::r_utf8str_t, flist_it, flist_it>);
+    static_assert(axe::is_rule_v<axe::r_utf8_t> && axe::is_rule_v<axe::r_utf8str_t>);
 
     // returns the number of code units matched by one r_utf8, or -1 on mismatch
     template<class C>
@@ -149,6 +162,28 @@ namespace
 
         gbassert(std::string(axe::get_name(axe::r_utf8())) == "r_utf8");
         gbassert(std::string(axe::get_name(axe::r_utf8str())) == "r_utf8str");
+    }
+
+    GB_TEST(axe, test_utf8_iterators)
+    {
+        // multi-pass, non-pointer iterators: bytes 'a' C3 41 (C3 is a truncated 2-byte sequence)
+        const std::forward_list<char> fl = { 'a', '\xC3', 'A' };
+        const auto c3 = std::next(fl.begin());
+        auto r1 = axe::r_utf8()(c3, fl.end());
+        gbassert(!r1.matched && r1.position == c3);
+        auto r2 = axe::r_utf8str()(fl.begin(), fl.end());
+        gbassert(r2.matched && r2.position == c3);
+        auto r3 = axe::r_utf8str()(c3, fl.end());
+        gbassert(!r3.matched && r3.position == c3);
+
+        // bidirectional iterators over unsigned char: U+20AC followed by a truncated U+20AC
+        const std::list<unsigned char> l = { 0xE2, 0x82, 0xAC, 0xE2, 0x82 };
+        const auto second = std::next(l.begin(), 3);
+        auto r4 = axe::r_utf8str()(l.begin(), l.end());
+        gbassert(r4.matched && r4.position == second);
+        auto r5 = axe::r_utf8()(second, l.end());
+        gbassert(!r5.matched && r5.position == second);
+        gbassert(!axe::parse(*axe::r_utf8() & axe::r_end(), l).matched);
     }
 }
 

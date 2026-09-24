@@ -49,7 +49,7 @@ catch (const axe::depth_limit_exceeded<I>& ex)
 
 - `r_utf8()` matches exactly one well-formed UTF-8 encoded code point. It rejects stray continuation bytes, overlong encodings, surrogate code points U+D800..U+DFFF encoded directly, code points above U+10FFFF, the bytes 0xC0, 0xC1 and 0xF5..0xFF, and truncated sequences. On failure the returned position is the start of the ill-formed sequence.
 - `r_utf8str()` matches one or more well-formed code points and stops before the first ill-formed sequence or at the end of input.
-- Both rules work with iterators over `char`, `signed char`, `unsigned char` and `char8_t`.
+- Both rules work with forward (multi-pass) iterators over `char`, `signed char`, `unsigned char` and `char8_t`. Single-pass input iterators such as `std::istreambuf_iterator` are rejected at compile time: advancing a copy of them moves the shared stream, so the start of a rejected sequence couldn't be restored. Read such input into a buffer first.
 
 ```cpp
 bool valid = axe::parse(*axe::r_utf8() & axe::r_end(), text).matched;  // whole input is UTF-8

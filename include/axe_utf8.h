@@ -43,10 +43,14 @@ namespace axe
         /// returns false and leaves i unchanged if the sequence at i is ill-formed:
         /// stray continuation byte, overlong encoding, surrogate code point (U+D800..U+DFFF),
         /// code point above U+10FFFF, bytes 0xC0, 0xC1, 0xF5..0xFF, or truncated sequence
+        /// a forward iterator is required: the sequence is examined through a copy of i,
+        /// which would move a single-pass iterator (e.g. std::istreambuf_iterator)
         //-------------------------------------------------------------------------
         template<class Iterator, class Iterator2>
         bool utf8_advance(Iterator& i, Iterator2 end)
         {
+            static_assert(is_forward_iterator<Iterator>,
+                "UTF-8 rules require forward iterators, single-pass input iterators can't restore the position");
             using value_t = std::remove_cv_t<std::remove_reference_t<decltype(*i)>>;
             static_assert(std::is_integral_v<value_t> && sizeof(value_t) == 1,
                 "UTF-8 rules require iterators over 8-bit code units (char, char8_t, unsigned char)");
@@ -100,14 +104,16 @@ namespace axe
     /// r_utf8_t matches exactly one well-formed UTF-8 encoded code point
     /// ill-formed sequences don't match (see detail::utf8_advance),
     /// on failure the returned position is the start of the sequence
-    /// works with iterators over char, signed char, unsigned char, and char8_t
+    /// works with forward iterators over char, signed char, unsigned char, and char8_t;
+    /// single-pass input iterators are rejected at compile time (the rule isn't invocable),
+    /// because the start position of a rejected sequence can't be restored for them
     //-------------------------------------------------------------------------
     struct r_utf8_t final
     {
         template<class Iterator, class Iterator2>
-        result<Iterator> operator() (Iterator i1, Iterator2 i2) const
+        auto operator() (Iterator i1, Iterator2 i2) const
+            -> std::enable_if_t<is_forward_iterator<Iterator>, result<Iterator>>
         {
-            static_assert(is_input_iterator<Iterator>);
             Iterator i = i1;
             return detail::utf8_advance(i, i2) ? result(true, i) : result(false, i1);
         }
@@ -119,13 +125,14 @@ namespace axe
     /// r_utf8str_t matches one or more well-formed UTF-8 encoded code points,
     /// matching stops before the first ill-formed sequence or at the end of input
     /// to validate that the whole input is UTF-8 use: *r_utf8() & r_end()
+    /// like r_utf8_t, it requires forward iterators
     //-------------------------------------------------------------------------
     struct r_utf8str_t final
     {
         template<class Iterator, class Iterator2>
-        result<Iterator> operator() (Iterator i1, Iterator2 i2) const
+        auto operator() (Iterator i1, Iterator2 i2) const
+            -> std::enable_if_t<is_forward_iterator<Iterator>, result<Iterator>>
         {
-            static_assert(is_input_iterator<Iterator>);
             Iterator i = i1;
             while (detail::utf8_advance(i, i2)) {}
             return make_result(i != i1, i);
