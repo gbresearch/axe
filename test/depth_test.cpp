@@ -190,6 +190,65 @@ namespace
         gbassert(axe::detail::depth_frames() == nullptr);
     }
 
+    // parse must throw depth_limit_exceeded with max_depth and position at offset from the start
+    template<class R>
+    bool throws_depth_limit(const R& r, const std::string& str, size_t max_depth, size_t offset)
+    {
+        try
+        {
+            axe::parse(std::ref(r), str.c_str(), str.c_str() + str.size());
+        }
+        catch (const axe::depth_limit_exceeded<I>& ex)
+        {
+            return ex.max_depth() == max_depth && ex.position() == str.c_str() + offset
+                && axe::detail::depth_frames() == nullptr;
+        }
+        return false;
+    }
+
+    GB_TEST(axe, test_depth_limit_nested_or)
+    {
+        // the wrapper is an alternative of r_or_t, which is what r_rule holds,
+        // the depth must be counted on the same wrapper object in every invocation
+        axe::r_rule<I> value;
+        auto array = '[' & (axe::r_char(']') | std::ref(value) & ']');
+        value = axe::r_char('1') | axe::r_depth_limit(array, 3);
+
+        gbassert(match_all(value, "1"));
+        gbassert(match_all(value, "[1]"));
+        gbassert(match_all(value, "[[[1]]]"));
+        gbassert(match_all(value, "[[[]]]"));
+        gbassert(throws_depth_limit(value, "[[[[1]]]]", 3, 3));
+        gbassert(throws_depth_limit(value, "[[[[]]]]", 3, 3));
+
+        // hostile input must be rejected by the limit, not by overflowing the stack
+        gbassert(throws_depth_limit(value, std::string(1'000'000, '['), 3, 3));
+        gbassert(match_all(value, "[[[1]]]"));
+    }
+
+    GB_TEST(axe, test_depth_limit_nested_and)
+    {
+        // the wrapper is an operand of r_and_t, which is what r_rule holds
+        axe::r_rule<I> list;
+        list = '(' & axe::r_depth_limit(axe::r_char(')') | std::ref(list) & ')', 4);
+
+        gbassert(match_all(list, parens(1)));
+        gbassert(match_all(list, parens(4)));
+        gbassert(!match_all(list, parens(4) + ")"));
+        gbassert(throws_depth_limit(list, parens(5), 4, 5)); // '(' is consumed before the wrapper
+        gbassert(throws_depth_limit(list, std::string(1'000'000, '('), 4, 5));
+        gbassert(match_all(list, parens(4)));
+
+        // the wrapper nested in both: r_or_t inside r_and_t inside r_or_t
+        axe::r_rule<I> value;
+        value = axe::r_char('1') | '[' & (axe::r_char(']') | axe::r_depth_limit(std::ref(value), 2) & ']');
+
+        gbassert(match_all(value, "[[1]]"));
+        gbassert(match_all(value, "[[[]]]"));
+        gbassert(throws_depth_limit(value, "[[[1]]]", 2, 3));
+        gbassert(throws_depth_limit(value, std::string(1'000'000, '['), 2, 3));
+    }
+
     GB_TEST(axe, test_depth_limit_threads)
     {
         // the same rule object is used concurrently from several threads,

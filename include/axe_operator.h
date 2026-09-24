@@ -251,7 +251,7 @@ namespace axe
             {
                 return r_and_t<r_not_t<std::decay_t<R>>, Rs...>(r_not_t<std::decay_t<R>>(std::forward<R>(r2)),
                     std::forward<decltype(r)>(r)...);
-            }, r1.get());
+            }, std::move(r1).get());
         }
             
         //-------------------------------------------------------------------------

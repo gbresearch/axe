@@ -45,11 +45,27 @@ namespace axe
 {
     namespace detail
     {
+        // composites invoke their operands as const, custom rules must define a const operator();
+        // these traits test the exact calls made by match and parse_tree_invoke
+        template<class R, class I, class I2>
+        constexpr bool is_const_rule_v = std::is_invocable_v<const R&, I&, I2&>;
+
+        template<class R, class I>
+        constexpr bool is_const_tree_rule_v = std::conditional_t<is_extracting_rule_v<I, const R&>,
+            std::is_invocable<const R&, it_pair<I>&>, std::is_invocable<const R&, I, I>>::value;
+
         template<class R, class... Rs>
         class r_binary_fn_t
         {
             static_assert(sizeof...(Rs) != 0);
             std::tuple<R, Rs...> rs_;
+
+        protected:
+            template<class I, class I2>
+            static constexpr bool const_rules_v = is_const_rule_v<R, I, I2> && (is_const_rule_v<Rs, I, I2> && ...);
+
+            template<class I>
+            static constexpr bool const_tree_rules_v = is_const_tree_rule_v<R, I> && (is_const_tree_rule_v<Rs, I> && ...);
 
         public:
             template<class T1, class T2, class...Ts>
@@ -57,7 +73,8 @@ namespace axe
                 : rs_(std::forward<T1>(r1), std::forward<T2>(r2), std::forward<Ts>(rs)...)
             {}
 
-            decltype(auto) get() const & { return rs_; }
+            // parenthesized: decltype(auto) of a plain member name would deduce the member type and return a copy
+            decltype(auto) get() const & { return (rs_); }
             decltype(auto) get() && { return std::move(rs_); }
         };
 
@@ -157,6 +174,7 @@ namespace axe
         result<Iterator> operator() (Iterator i1, Iterator2 i2) const
         {
             static_assert(is_forward_iterator<Iterator>);
+            static_assert(base::template const_rules_v<Iterator, Iterator2>, "r_and_t (operator& and operator-): every operand must be a rule with a const operator()");
             return std::apply([&](auto&&...r) { return match(i1, i2, std::forward<decltype(r)>(r)...); }, get());
         }
 
@@ -165,6 +183,7 @@ namespace axe
             std::tuple< detail::parse_tree_data_t<R, Iterator>, detail::parse_tree_data_t<Rs, Iterator>...>>
         {
             static_assert(is_forward_iterator<Iterator>);
+            static_assert(base::template const_tree_rules_v<Iterator>, "r_and_t (operator& and operator-): every operand must be a rule with a const operator()");
             return std::apply([&](auto&&...r) { return match_tree(itp, std::forward<decltype(r)>(r)...); }, get());
         }
         static const char* name() { return "and"; }
@@ -237,6 +256,7 @@ namespace axe
         result<Iterator> operator() (Iterator i1, Iterator2 i2) const
         {
             static_assert(is_forward_iterator<Iterator>);
+            static_assert(base::template const_rules_v<Iterator, Iterator2>, "r_or_t (operator|): every operand must be a rule with a const operator()");
             return std::apply([&](auto&&...r) { return match(i1, i2, std::forward<decltype(r)>(r)...); }, get());
         }
         
@@ -245,6 +265,7 @@ namespace axe
             result<Iterator, std::variant<detail::parse_tree_data_t<R, Iterator>, detail::parse_tree_data_t<Rs, Iterator>...>>
         {
             static_assert(is_forward_iterator<Iterator>);
+            static_assert(base::template const_tree_rules_v<Iterator>, "r_or_t (operator|): every operand must be a rule with a const operator()");
             return std::apply([&](auto&&...r) { return match_tree(itp, std::forward<decltype(r)>(r)...); }, get());
         }
 
