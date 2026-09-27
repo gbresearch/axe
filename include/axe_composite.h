@@ -628,7 +628,10 @@ namespace axe
         template<class Iterator, class Iterator2>
         result<Iterator> operator()(Iterator i1, Iterator2 i2) const
         {
-            static_assert(std::is_convertible<Iterator, I>::value);
+            static_assert(std::is_convertible<Iterator, I>::value,
+                "r_rule<I>: the iterator must be convertible to I; r_skip, r_convert and r_buffered pass "
+                "their own iterator type to sub-rules, so an r_rule used inside them must be declared "
+                "with that type, e.g. r_rule<skip_iterator<I, F>>");
             if (fun_)
                 return fun_(i1, i2);
             else // always match an empty rule

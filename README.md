@@ -43,6 +43,23 @@ catch (const axe::depth_limit_exceeded<I>& ex)
 - The rules that don't use the wrapper are unchanged and have no overhead.
 - Choose `max_depth` so that `max_depth` levels fit the stack of the parsing thread. Stack usage per level depends on the grammar and the build. For the JSON sample in `test/jason_test.cpp` it is about 40 KB per nesting level in an MSVC Debug build (`/ZI /JMC /RTC1`) and about 3 KB in Release, so a 1 MB thread stack holds roughly 20 levels in Debug and 300 in Release.
 
+## `r_rule` inside rules that change the iterator type
+
+`r_rule<I>` uses type erasure, so it can be called only with iterators convertible to `I`. `r_skip`, `r_convert` and `r_buffered` don't pass the input iterator to their sub-rule; they pass `skip_iterator<I, F>`, `convert_iterator<I, F>` and `input_buffer<I>::iterator` respectively. An `r_rule` used in the sub-rule, including through `std::ref`, must be declared with that iterator type, otherwise compilation fails at the `static_assert` in `r_rule::operator()`:
+
+```cpp
+std::string text = "abc [ abc [ 2 ] ]";
+using I = std::string::iterator;
+axe::r_rule<axe::skip_iterator<I, axe::r_pred<axe::is_wspace>>> r;  // the iterator created by r_skip(..., _ws)
+auto a = axe::r_lit("abc") & std::ref(r);
+r = '[' & (_int | a) & ']';
+bool matched = axe::parse(axe::r_skip(a, _ws), text).matched;
+```
+
+- For `r_skip`, `F` must be exactly the skipper type it stores: the decayed type of a predicate or rule (`std::decay_t<decltype(_ws)>`, not `decltype(_ws)`), `is_char_t<C>` for a character, and `is_any_t<const C*>` for a string.
+- Such a rule works only inside that transformation. A function object with a templated `operator()`, like `r_expression` in `axe_expression.h`, works with any iterator type. Alternatively, keep `r_rule<I>` and skip white space explicitly with `*_ws`.
+- `r_skip` skips between every pair of characters, not only between tokens: `r_skip(r_decimal(n), _ws)` reads `1 2` as 12.
+
 ## Validating UTF-8: `r_utf8`, `r_utf8str`
 
 `axe_utf8.h` provides terminal rules for well-formed UTF-8 (RFC 3629, Unicode Table 3-7):
