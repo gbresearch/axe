@@ -38,6 +38,13 @@
     #error c++ 17 compiler required
 #endif
 
+// the language level; MSVC reports it in __cplusplus only with /Zc:__cplusplus, but always in _MSVC_LANG
+#if defined(_MSVC_LANG)
+    #define AXE_CPLUSPLUS _MSVC_LANG
+#else
+    #define AXE_CPLUSPLUS __cplusplus
+#endif
+
 //-----------------------------
 #define AXE_IS_RULE(...) axe::is_rule_v<std::remove_reference_t<__VA_ARGS__>>
 #define AXE_IS_PREDICATE(...) axe::is_predicate_v<std::remove_reference_t<__VA_ARGS__>>

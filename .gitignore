@@ -379,3 +379,6 @@ vs/axe-test.log
 *.ipdb
 vs/axe_test/x64/Release/obj/CodeAnalysisResultManifest.txt
 *.sarif
+
+# GNU make outputs (Makefile)
+/build/

@@ -31,7 +31,9 @@
 #include <vector>
 #include <sstream>
 #include <yadro/util/gbtest.h>
+#if defined(_MSC_VER)
 #pragma warning(disable:4503)
+#endif
 #include "../include/axe.h"
 
 auto find_paths(const std::wstring& path_string)

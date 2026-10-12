@@ -11,8 +11,25 @@ in your source files and set the include directory in your compiler environment 
 ## Requirements
 
 - The minimum language level is C++17 (checked in `axe_macro.h`); C++20 is needed only for `char8_t` input.
-- The library is developed and tested with Visual Studio 2026 (MSVC toolset v145) using `/std:c++latest`; the projects in `vs/AXE.sln` build x64 Debug and Release configurations. It is expected to work with any other reasonably compliant C++17 (or later) compiler.
-- The test project `vs/axe_test.vcxproj` uses the `gbtest` framework from [Yadro](https://github.com/gbresearch/yadro), which must be checked out next to this repository (`../yadro`).
+- The library is developed and tested with Visual Studio 2026 (MSVC toolset v145) using `/std:c++latest`, and with GCC 14 and Clang 20 using `-std=c++23` on Linux. The headers use only standard C++ and compile warning-free at `-Wall -Wextra -Wpedantic` with GCC and Clang from C++17 on.
+- The tests use the `gbtest` framework from [Yadro](https://github.com/gbresearch/yadro), which must be checked out next to this repository (`../yadro`). Yadro needs GCC 14 or Clang 20 or later.
+- With C++20 or later, a string literal with the `_axe` suffix (`"abc"_axe`, also `L""`, `u8""`, `u""` and `U""` literals) is a standard string literal operator template that returns `r_strlit<'a', 'b', 'c'>`, and `""_axe` returns `r_empty`; with C++17 it returns `r_str` for `char` and `wchar_t` literals.
+
+## Building the tests
+
+- Visual Studio: `vs/AXE.sln` builds x64 Debug and Release configurations.
+- GCC or Clang on Linux: the `Makefile` builds the same test executable, `build/<os>-<compiler>/<Config>/axe_test`, and `make test` runs it.
+
+```sh
+make -j8 test                    # GCC, release
+make -j8 test TOOLCHAIN=clang    # clang++
+make -j8 test CXX=g++-14         # a specific compiler
+make -j8 test CONFIG=debug       # -O0 -g instead of -O2
+make -j8 test WERROR=1           # warnings are errors
+make test YADRO_DIR=path/to/yadro
+make check-headers CXXSTD=-std=c++17   # each header compiles on its own at a given language level
+make help
+```
 
 ## Limiting recursion depth: `r_depth_limit`
 
