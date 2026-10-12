@@ -4,31 +4,78 @@ AXE is a C++ library that provides facilities to build recursive descent parsers
 AXE library contains a set of classes, functions, and operators to define syntax rules and semantic actions. The library uses standard C++ and doesn’t require compiler/platform specific facilities.
 AXE is a header only library, it doesn't require linking. You only need to add
 
+```cpp
 #include <axe.h>
+```
 
-in your source files and set the include directory in your compiler environment to point to axe/include.
+in your source files and set the include directory in your compiler environment to point to `axe/include`.
 
 ## Requirements
 
-- The minimum language level is C++17 (checked in `axe_macro.h`); C++20 is needed only for `char8_t` input.
-- The library is developed and tested with Visual Studio 2026 (MSVC toolset v145) using `/std:c++latest`, and with GCC 14 and Clang 20 using `-std=c++23` on Linux. The headers use only standard C++ and compile warning-free at `-Wall -Wextra -Wpedantic` with GCC and Clang from C++17 on.
-- The tests use the `gbtest` framework from [Yadro](https://github.com/gbresearch/yadro), which must be checked out next to this repository (`../yadro`). Yadro needs GCC 14 or Clang 20 or later.
-- With C++20 or later, a string literal with the `_axe` suffix (`"abc"_axe`, also `L""`, `u8""`, `u""` and `U""` literals) is a standard string literal operator template that returns `r_strlit<'a', 'b', 'c'>`, and `""_axe` returns `r_empty`; with C++17 it returns `r_str` for `char` and `wchar_t` literals.
+- The minimum language level is C++17 (checked in `axe_macro.h`). C++20 is needed for `char8_t` input and for the compile-time string literals described below.
+- The headers use only standard C++, without compiler extensions. They are tested with:
+  - Visual Studio 2026 (MSVC toolset v145) with `/std:c++latest`, x64 Debug and Release;
+  - GCC 14 and Clang 20 on Linux with `-std=c++23`, release and debug, at `-Wall -Wextra -Wpedantic -Werror`, and under AddressSanitizer, UndefinedBehaviorSanitizer and ThreadSanitizer.
+- Each header also compiles on its own, warning-free at `-Wall -Wextra -Wpedantic`, with GCC and Clang at C++17, C++20 and C++23 (`make check-headers`). The library alone also works with older compilers, such as GCC 13 and Clang 18.
+- The tests use the `gbtest` framework from [Yadro](https://github.com/gbresearch/yadro), which needs C++23: Visual Studio 2026, GCC 14 or later, or Clang 20 or later with libstdc++ 14 or later.
 
-## Building the tests
+## Building and running the tests
 
-- Visual Studio: `vs/AXE.sln` builds x64 Debug and Release configurations.
-- GCC or Clang on Linux: the `Makefile` builds the same test executable, `build/<os>-<compiler>/<Config>/axe_test`, and `make test` runs it.
+The tests expect Yadro checked out next to this repository:
 
 ```sh
-make -j8 test                    # GCC, release
-make -j8 test TOOLCHAIN=clang    # clang++
-make -j8 test CXX=g++-14         # a specific compiler
-make -j8 test CONFIG=debug       # -O0 -g instead of -O2
-make -j8 test WERROR=1           # warnings are errors
-make test YADRO_DIR=path/to/yadro
-make check-headers CXXSTD=-std=c++17   # each header compiles on its own at a given language level
-make help
+git clone https://github.com/gbresearch/axe
+git clone https://github.com/gbresearch/yadro
+cd axe
+```
+
+### Visual Studio
+
+`vs/AXE.sln` builds and runs `vs/axe_test.vcxproj`, x64 Debug and Release.
+
+### GCC or Clang on Linux
+
+The `Makefile` builds the same test executable from the same sources. On Ubuntu 24.04 the compilers are `sudo apt install g++-14` or `sudo apt install clang-20`; `make` reports an error if the compiler is too old.
+
+```sh
+make -j8 test                       # build and run with g++, release (-O2)
+make -j8 test TOOLCHAIN=clang       # with clang++
+make -j8 test CXX=g++-14            # with a specific compiler
+make -j8 test CONFIG=debug          # debug (-O0 -g)
+make -j8 test WERROR=1              # warnings are errors
+make test YADRO_DIR=path/to/yadro   # Yadro somewhere other than ../yadro
+make check-headers CXXSTD=-std=c++17   # each header compiles on its own at a language level
+make clean                          # remove this compiler's and configuration's outputs
+make help                           # all options
+```
+
+- The executable is `build/<os>-<compiler>/<Config>/axe_test`, e.g. `build/linux-g++-14/Release/axe_test`. It runs in that directory and writes `axe-test.log` there.
+- `TEST_ARGS` passes arguments to the test executable, which selects tests with `--suite <name>` and `--test <suite>.<name>` (the wildcards `*` and `?` are allowed), lists them with `--list`, and prints its options with `--help`:
+
+  ```sh
+  make test TEST_ARGS="--test axe.test_json*"
+  make test TEST_ARGS=--list
+  ```
+
+- `CPPFLAGS`, `CXXFLAGS`, `LDFLAGS` and `LDLIBS` are added to the flags, e.g. for sanitizers:
+
+  ```sh
+  make -j8 test CONFIG=debug CXXFLAGS=-fsanitize=address,undefined LDFLAGS=-fsanitize=address,undefined
+  ```
+
+## Literal shortcuts: `_axe`, `_any`, `_regex`
+
+`axe::shortcuts` (`axe_shortcut.h`) defines user-defined literals that create rules:
+
+- `'c'_axe` (`char` or `wchar_t`) matches the character, as `r_char('c')`.
+- `"abc"_axe` matches the string. With C++20 or later it is a standard string literal operator template: the characters become template arguments, `"abc"_axe` returns `r_strlit<'a', 'b', 'c'>`, and `""_axe` returns `r_empty`, which matches without consuming input. It works with `char`, `wchar_t`, `char8_t`, `char16_t` and `char32_t` literals, and characters after an embedded `\0` are matched too. With C++17 it returns `r_str` and works with `char` and `wchar_t` literals.
+- `"abc"_any` matches any one of the characters, as `r_any("abc")`.
+- `"[0-9]+"_regex` matches a regular expression, as `r_regex("[0-9]+")`.
+
+```cpp
+using namespace axe::shortcuts;
+auto assignment = _ident & *_ws & "="_axe & *_ws & _int & ';'_axe;
+auto escaped = '\\' & "nrt\\"_any;
 ```
 
 ## Limiting recursion depth: `r_depth_limit`
