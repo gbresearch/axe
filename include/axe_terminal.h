@@ -174,6 +174,7 @@ namespace axe
         template<class Iterator, class Iterator2>
         result<Iterator> operator() (Iterator i1, Iterator2 i2) const
         {
+            static_assert(is_input_iterator<Iterator>);
             if (i1 != i2 && C1 == *i1)
             {
                 if constexpr (sizeof...(C) != 0)

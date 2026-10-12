@@ -91,6 +91,7 @@
     <ClCompile Include="..\test\format_test.cpp" />
     <ClCompile Include="..\test\ini_test.cpp" />
     <ClCompile Include="..\test\jason_test.cpp" />
+    <ClCompile Include="..\test\literal_test.cpp" />
     <ClCompile Include="..\test\reference.cpp" />
     <ClCompile Include="..\test\replacement_test.cpp" />
     <ClCompile Include="..\test\roman_numerals.cpp" />

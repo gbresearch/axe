@@ -31,7 +31,9 @@
 #include <vector>
 #include <sstream>
 #include <utility>
+#if defined(_MSC_VER)
 #pragma warning(disable:4503)
+#endif
 #include "../include/axe.h"
 #include <yadro/util/gbtest.h>
 
@@ -55,7 +57,7 @@ public:
             | param_holder >> axe::e_push_back(_strings)
             )
             & _z
-            | axe::r_fail([](auto i1, auto i2)
+            | axe::r_fail([](auto, auto)
         {
             throw std::runtime_error("parsing failed");
         });

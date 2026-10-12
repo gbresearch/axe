@@ -28,11 +28,12 @@
 
 #include <yadro/util/gbtest.h>
 
-int main()
+int main(int argc, char* argv[])
 {
     using namespace gb::yadro::util;
     tester::set_verbose(true);
     tester::set_logger("axe-test.log", std::cout);
     tester::set_policy(std::launch::async);
-    return tester::run() ? 0 : -1;
+    // --suite, --test, --list and --help select or list the tests, see tester::usage()
+    return tester::run(argc, argv) ? 0 : -1;
 }

@@ -30,7 +30,9 @@
 #include <map>
 #include <vector>
 #include <sstream>
+#if defined(_MSC_VER)
 #pragma warning(disable:4503)
+#endif
 #include "../include/axe.h"
 #include <yadro/util/gbtest.h>
 

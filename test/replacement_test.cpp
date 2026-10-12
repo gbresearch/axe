@@ -31,7 +31,9 @@
 #include <vector>
 #include <tuple>
 #include <yadro/util/gbtest.h>
+#if defined(_MSC_VER)
 #pragma warning(disable:4503)
+#endif
 #include "../include/axe.h"
 
 template<class Container, class Rule>

@@ -28,10 +28,37 @@
 
 #pragma once
 
+#include "axe_macro.h"
 #include "axe_terminal_function.h"
 #include "axe_composite_function.h"
 #include "axe_predicate_function.h"
 #include "axe_numeric_function.h"
+
+#include <cstddef>
+#include <utility>
+
+#if AXE_CPLUSPLUS >= 202002L
+namespace axe::detail
+{
+    //-------------------------------------------------------------------------
+    /// a string literal as a structural type, so it can be a template argument
+    //-------------------------------------------------------------------------
+    template<class CharT, std::size_t N>
+    struct string_literal
+    {
+        CharT chars[N]{};
+
+        constexpr string_literal(const CharT (&str)[N])
+        {
+            for (std::size_t i = 0; i < N; ++i)
+                chars[i] = str[i];
+        }
+
+        // the number of characters, without the terminating 0
+        static constexpr std::size_t size() { return N - 1; }
+    };
+}
+#endif
 
 namespace axe
 {
@@ -56,56 +83,65 @@ namespace axe
         const auto _z = axe::r_end(); // end of range
         const auto _endl = *_hs & (_n | _z); // horizontal spaces and eol or eor
 
-    #if defined(__GNUC__)
-        // non-standard, GCC specific, will be changed in C++20
-        // http://open-std.org/JTC1/SC22/WG21/docs/papers/2013/n3599.html
-        // www.open-std.org/jtc1/sc22/wg21/docs/papers/2017/p0424r2.pdf
-        template <class T, T... C> constexpr auto operator "" _axe() { return axe::r_strlit<C...>{}; }
+    #if AXE_CPLUSPLUS >= 202002L
+        // C++20 string literal operator template (P0732): the characters of the literal become the
+        // template arguments of r_strlit; an empty literal ""_axe matches the empty string
+        template<detail::string_literal S>
+        constexpr auto operator ""_axe()
+        {
+            return []<std::size_t... I>(std::index_sequence<I...>)
+            {
+                if constexpr (sizeof...(I) == 0)
+                    return axe::r_empty();
+                else
+                    return axe::r_strlit<S.chars[I]...>{};
+            }(std::make_index_sequence<S.size()>{});
+        }
     #else
         //---------------------------------------
-        inline auto operator "" _axe(const char* str, size_t)
+        inline auto operator ""_axe(const char* str, size_t)
         {
             return axe::r_str(str);
         }
 
         //---------------------------------------
-        inline auto operator "" _axe(const wchar_t* str, size_t)
+        inline auto operator ""_axe(const wchar_t* str, size_t)
         {
             return axe::r_str(str);
         }
     #endif
         //---------------------------------------
-        inline auto operator "" _axe(char c)
+        inline auto operator ""_axe(char c)
         {
             return axe::r_char(c);
         }
 
         //---------------------------------------
-        inline auto operator "" _axe(wchar_t c)
+        inline auto operator ""_axe(wchar_t c)
         {
             return axe::r_char(c);
         }
 
         //---------------------------------------
-        inline auto operator "" _any(const char* str, size_t)
+        inline auto operator ""_any(const char* str, size_t)
         {
             return axe::r_any(str);
         }
 
         //---------------------------------------
-        inline auto operator "" _any(const wchar_t* str, size_t)
+        inline auto operator ""_any(const wchar_t* str, size_t)
         {
             return axe::r_any(str);
         }
 
         //---------------------------------------
-        inline auto operator "" _regex(const char* str, size_t)
+        inline auto operator ""_regex(const char* str, size_t)
         {
             return axe::r_regex(str);
         }
 
         //---------------------------------------
-        inline auto operator "" _regex(const wchar_t* str, size_t)
+        inline auto operator ""_regex(const wchar_t* str, size_t)
         {
             return axe::r_regex(str);
         }
