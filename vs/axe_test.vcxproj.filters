@@ -51,6 +51,9 @@
     <ClCompile Include="..\test\rules_test.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\test\transform_test.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="..\test\utf8_test.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>

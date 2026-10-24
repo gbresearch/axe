@@ -30,6 +30,7 @@
 
 #include <type_traits>
 #include <vector>
+#include <optional>
 #include <assert.h>
 
 #include "axe_exception.h"
@@ -113,7 +114,8 @@ namespace axe
             while (it != end_)
             {
                 auto match = r(it, end_);
-                if (match.matched)
+                // a skipper matching empty input (e.g. *_ws) would be applied forever
+                if (match.matched && match.position != it)
                     it = match.position;
                 else
                     return;
@@ -201,7 +203,8 @@ namespace axe
             while(it != end_)
             {
                 auto match = r(it, end_);
-                if(match.matched)
+                // a skipper matching empty input (e.g. *_ws) would be applied forever
+                if(match.matched && match.position != it)
                     it = match.position;
                 else
                     return;
@@ -270,7 +273,8 @@ namespace axe
     class convert_iterator
     {
         I it_;
-        F fun_;
+        // optional, so that assignment can copy a function that has no copy assignment, such as a lambda
+        std::optional<F> fun_;
         friend class iterator;
     public:
         using iterator_category = std::forward_iterator_tag;
@@ -280,18 +284,28 @@ namespace axe
         using reference = typename std::iterator_traits<I>::reference;
 
         convert_iterator(I it, F fun) : it_(it), fun_(std::move(fun)) {}
+        convert_iterator(const convert_iterator&) = default;
         convert_iterator& operator++ () { ++it_; return *this; }
         convert_iterator operator++ (int) { auto tmp = *this; ++it_; return tmp; }
         value_type operator* () const
         {
-            static_assert(std::is_convertible<decltype(fun_(*it_)), value_type>::value,
+            static_assert(std::is_convertible<decltype((*fun_)(*it_)), value_type>::value,
                 "Function return type must be convertible to value_type");
-            return fun_(*it_);
+            return (*fun_)(*it_);
         }
 
         bool operator== (const convert_iterator& other) const { return it_ == other.it_; }
         bool operator!= (const convert_iterator& other) const { return !operator==(other); }
-        convert_iterator& operator= (const convert_iterator& i) { it_ = i.it_; fun_ = i.fun_; return *this; }
+        convert_iterator& operator= (const convert_iterator& i)
+        {
+            if (this != &i)
+            {
+                it_ = i.it_;
+                fun_.reset();
+                fun_.emplace(*i.fun_);
+            }
+            return *this;
+        }
         I get() const { return it_; }
     };
 
@@ -367,6 +381,7 @@ namespace axe
             using reference = typename std::iterator_traits<I>::reference;
 
             iterator(input_buffer& buf, size_t position) : buf_(buf), position_(position) {}
+            iterator(const iterator&) = default;
 
             iterator& operator++ () { buf_.inc(position_); return *this; }
             iterator operator++ (int) { auto tmp = *this; buf_.inc(position_); return tmp; }
