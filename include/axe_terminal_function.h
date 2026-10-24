@@ -114,13 +114,16 @@ namespace axe
     template<class R1, class R2>
     r_many_t<
         detail::r_lit_traits_t<R1>,
-        detail::r_lit_traits_t<R2>
+        std::enable_if_t<
+        // avoid overload ambiguity between r_many('a', 0) and r_many('a', detail::r_lit_traits<int>(0))
+        !std::is_convertible_v<R2, size_t> | std::is_same_v<R2, char> | std::is_same_v<R2, wchar_t>,
+        detail::r_lit_traits_t<R2>>
     >
         r_many(R1 r1, R2 r2, size_t min_occurrence = 1, size_t max_occurrence = -1)
     {
         return r_many_t<detail::r_lit_traits_t<R1>, detail::r_lit_traits_t<R2>>(
             detail::r_lit_traits_t<R1>(r1),
-            detail::r_lit_traits_t<R1>(r2), min_occurrence, max_occurrence);
+            detail::r_lit_traits_t<R2>(r2), min_occurrence, max_occurrence);
     }
 
     //-------------------------------------------------------------------------

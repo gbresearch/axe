@@ -148,7 +148,7 @@ namespace axe
             os << "<optional matched=\"true\">\n";
             write_xml(v.value(), os, level + 1);
             os << indent;
-            os << "/optional>\n";
+            os << "</optional>\n";
         }
         else
             os << "<optional matched=\"false\"/>\n";
@@ -213,7 +213,7 @@ namespace axe
 	template<class D, class I>
 	auto get_as(I i1, I i2)
 	{
-		D d;
+		D d{}; // the extractors leave d unchanged for an empty range
 		e_value_t<D>{d}(i1, i2);
 		return d;
 	}

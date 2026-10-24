@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<!--
+  pandoc HTML template for the AXE Library Reference (see docs/README.md).
+  The copyright line comes from the "copyright" field of the Markdown front matter and is printed at the
+  bottom of every page; reference.css lays out the pages.
+-->
+<html lang="$if(lang)$$lang$$else$en$endif$">
+<head>
+<meta charset="utf-8">
+<meta name="generator" content="pandoc">
+<title>$title$$if(subtitle)$ $subtitle$$endif$</title>
+$if(highlighting-css)$
+<style>
+$highlighting-css$
+</style>
+$endif$
+$for(css)$
+<link rel="stylesheet" href="$css$">
+$endfor$
+$if(copyright)$
+<style>
+@page { @bottom-center { content: "$copyright/nowrap$"; } }
+</style>
+$endif$
+</head>
+<body>
+<header class="cover">
+<h1 class="title">$title$</h1>
+$if(subtitle)$
+<p class="subtitle">$subtitle$</p>
+$endif$
+</header>
+$if(toc)$
+<nav id="TOC" role="doc-toc">
+$table-of-contents$
+</nav>
+$endif$
+<main>
+$body$
+</main>
+</body>
+</html>

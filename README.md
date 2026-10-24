@@ -45,6 +45,7 @@ make -j8 test CONFIG=debug          # debug (-O0 -g)
 make -j8 test WERROR=1              # warnings are errors
 make test YADRO_DIR=path/to/yadro   # Yadro somewhere other than ../yadro
 make check-headers CXXSTD=-std=c++17   # each header compiles on its own at a language level
+make docs                           # the Library Reference PDF from docs/AXE-Reference.md, see docs/README.md
 make clean                          # remove this compiler's and configuration's outputs
 make help                           # all options
 ```

@@ -95,6 +95,8 @@
     <ClCompile Include="..\test\reference.cpp" />
     <ClCompile Include="..\test\replacement_test.cpp" />
     <ClCompile Include="..\test\roman_numerals.cpp" />
+    <ClCompile Include="..\test\rules_test.cpp" />
+    <ClCompile Include="..\test\transform_test.cpp" />
     <ClCompile Include="..\test\utf8_test.cpp" />
     <ClCompile Include="..\test\wildcard_test.cpp" />
     <ClCompile Include="..\test\winpath_test.cpp" />

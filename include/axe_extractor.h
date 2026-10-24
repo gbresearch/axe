@@ -34,7 +34,11 @@
 #include <ostream>
 #include <utility>
 #include <iterator>
+#include <memory>
 #include <cstddef>
+#if __has_include(<version>)
+#include <version>
+#endif
 #include "axe_result.h"
 #include "axe_trait.h"
 #include "axe_iterator.h"
@@ -153,7 +157,15 @@ namespace axe
         void operator() (Iterator i1, Iterator2 i2) const
         {
             static_assert(std::is_convertible_v<decltype(*i1), C>);
-            str = std::basic_string_view<C, T>(i1, std::distance(i1,i2));
+            // the view refers to the input, which must be contiguous
+            const auto size = static_cast<std::size_t>(std::distance(i1, i2));
+        #if AXE_CPLUSPLUS >= 202002L && defined(__cpp_lib_concepts)
+            static_assert(std::contiguous_iterator<Iterator>, "extraction to string_view needs contiguous input");
+            str = std::basic_string_view<C, T>(std::to_address(i1), size);
+        #else
+            static_assert(std::is_pointer_v<Iterator>, "extraction to string_view needs pointers to the input before C++20");
+            str = std::basic_string_view<C, T>(i1, size);
+        #endif
         }
     };
 
