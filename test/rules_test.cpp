@@ -208,6 +208,38 @@ namespace
         gbassert(tree.matched && tree.position == text.end() && evaluations == 3);
     }
 
+    GB_TEST(axe, test_r_find_end)
+    {
+        // the end of input is tried too, in parse and parse_tree alike
+        std::string abc = "abc", empty;
+        auto res = axe::parse(axe::r_find(_z), abc);
+        gbassert(res.matched && res.position == abc.end());
+        gbassert(axe::parse_tree(axe::r_find(_z), abc).position == abc.end());
+        gbassert(axe::parse(axe::r_find(_z), empty).matched);
+        gbassert(axe::parse_tree(axe::r_find(_z), empty).matched);
+
+        // when the rule isn't found, each position, the end included, is tried once
+        size_t evaluations = 0;
+        auto x = [&](auto i1, auto i2)
+        {
+            ++evaluations;
+            bool matched = i1 != i2 && *i1 == 'x';
+            return axe::result(matched, matched ? std::next(i1) : i1);
+        };
+        gbassert(!axe::parse(axe::r_find(x), abc).matched && evaluations == 4);
+        evaluations = 0;
+        gbassert(!axe::parse_tree(axe::r_find(x), abc).matched && evaluations == 4);
+        evaluations = 0;
+        gbassert(!axe::parse(axe::r_find(x), empty).matched && evaluations == 1);
+        evaluations = 0;
+        gbassert(!axe::parse_tree(axe::r_find(x), empty).matched && evaluations == 1);
+
+        // a repetition of r_find matching at the end stops, as any repetition of an empty match
+        size_t found = 0;
+        res = axe::parse(+axe::r_find(_z >> [&] { ++found; }), abc);
+        gbassert(res.matched && res.position == abc.end() && found == 2);
+    }
+
     GB_TEST(axe, test_unordered_and)
     {
         // A && B is A & B | B & A
