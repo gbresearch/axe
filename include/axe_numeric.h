@@ -28,14 +28,89 @@
 
 #pragma once
 
+#include <algorithm>
+#include <limits>
+#include <string>
+#include <type_traits>
 #include "axe_composite_function.h"
 #include "axe_terminal_function.h"
 #include "axe_extractor_function.h"
 #include "axe_predicate.h"
 #include "axe_trait.h"
+#include "axe_detail.h"
 
 namespace axe
 {
+    namespace detail
+    {
+        //-------------------------------------------------------------------------
+        /// append_digit adds a digit to an integer number: number * base + digit, or number * base - digit
+        /// for a negative number, which is accumulated as negative, so that the minimum of T can be read;
+        /// returns false, without changing number, if the result doesn't fit T
+        /// numbers of other arithmetic types aren't checked
+        //-------------------------------------------------------------------------
+        template<class T>
+        bool append_digit(T& number, unsigned base, unsigned digit, bool negative)
+        {
+            if constexpr (std::numeric_limits<T>::is_integer)
+            {
+                using limits = std::numeric_limits<T>;
+                if (!negative)
+                {
+                    if (number > (limits::max() - T(digit)) / T(base))
+                        return false;
+                    number = T(number * T(base) + T(digit));
+                }
+                else if constexpr (limits::is_signed)
+                {
+                    if (number < (limits::min() + T(digit)) / T(base))
+                        return false;
+                    number = T(number * T(base) - T(digit));
+                }
+                else if (digit != 0) // the only negative unsigned number is zero
+                    return false;
+                return true;
+            }
+            else
+            {
+                number = negative ? number * base - digit : number * base + digit;
+                return true;
+            }
+        }
+
+        //-------------------------------------------------------------------------
+        /// assign_floating converts the text of a matched number to T exactly, and assigns it;
+        /// returns false, without changing value, if the number doesn't fit T
+        //-------------------------------------------------------------------------
+        template<class T, class Iterator>
+        bool assign_floating(T& value, Iterator first, Iterator last)
+        {
+            std::string text;
+            if (!number_text(first, last, text))
+                return false;
+            // the rules allow spaces after a sign, also in the exponent
+            text.erase(std::remove(text.begin(), text.end(), ' '), text.end());
+
+            if constexpr (std::is_floating_point_v<T>)
+            {
+                return to_number(text, value) == number_status::ok;
+            }
+            else
+            {
+                long double number = 0;
+                if (to_number(text, number) != number_status::ok)
+                    return false;
+                if constexpr (std::numeric_limits<T>::is_integer)
+                {
+                    if (number < static_cast<long double>(std::numeric_limits<T>::lowest())
+                        || number > static_cast<long double>(std::numeric_limits<T>::max()))
+                        return false;
+                }
+                value = static_cast<T>(number);
+                return true;
+            }
+        }
+    }
 
     //-------------------------------------------------------------------------
     /// r_number_w_base_t rule matches number with specified base
@@ -49,8 +124,8 @@ namespace axe
         template<class T>
         static bool match(T value) { return is_num()(value); }
 
-        template<class T, class I>
-        static void shift(T& t, I i) { t = t * 10 + *i - '0'; }
+        template<class C>
+        static unsigned digit(C c) { return unsigned(c - '0'); }
     };
 
 
@@ -67,19 +142,28 @@ namespace axe
         template<class Iterator, class Iterator2>
         result<Iterator> operator() (Iterator i1, Iterator2 i2) const
         {
-            auto matched = false;
+            return match(i1, i2, false);
+        }
+
+        /// matches the digits and assigns the number, negative if specified;
+        /// a number that doesn't fit T fails where its digits start, and isn't assigned
+        template<class Iterator, class Iterator2>
+        result<Iterator> match(Iterator i1, Iterator2 i2, bool negative) const
+        {
+            auto start = i1;
+            auto fits = true;
             T number{ 0 };
 
             for(; i1 != i2 && radix<base>::match(*i1); ++i1)
-            {
-                matched = true;
-                radix<base>::shift(number, i1);
-            }
+                fits = fits && detail::append_digit(number, base, radix<base>::digit(*i1), negative);
 
-            if(matched)
-                number_ = number;
+            if(i1 == start)
+                return make_result(false, i1);
+            if(!fits)
+                return make_result(false, start);
 
-            return make_result(matched, i1);
+            number_ = number;
+            return make_result(true, i1);
         }
     };
 
@@ -107,13 +191,13 @@ namespace axe
         template<class Iterator, class Iterator2>
         result<Iterator> operator() (Iterator i1, Iterator2 i2) const
         {
-            bool sign = false;
+            bool negative = false;
 
             if(i1 != i2)
             {
                 if(*i1 == '-')
                 {
-                    sign = true;
+                    negative = true;
                     ++i1;
                 }
                 else if(*i1 == '+')
@@ -124,12 +208,7 @@ namespace axe
 
             for(; i1 != i2 && is_space()(*i1); ++i1); // skip spaces
 
-            auto result = r_number_w_base_t<T, base, false>(number_)(i1, i2);
-
-            if(result.matched && sign)
-                number_ = -number_;
-
-            return result;
+            return r_number_w_base_t<T, base, false>(number_).match(i1, i2, negative);
         }
     };
 
@@ -164,6 +243,7 @@ namespace axe
 
     //-------------------------------------------------------------------------
     /// r_hex_t rule matches unsigned hex number
+    /// a number that doesn't fit T fails and isn't assigned
     //-------------------------------------------------------------------------
     template<class T>
     class r_hex_t 
@@ -177,30 +257,32 @@ namespace axe
         {
             T number{ 0 };
             auto start = i1;
+            auto fits = true;
 
             for(; i1 != i2 && is_hex()(*i1); ++i1)
             {
-                number = number * 16 + convert(i1);
+                fits = fits && detail::append_digit(number, 16, convert(i1), false);
             }
 
-            auto matched = i1 != start;
+            auto matched = i1 != start && fits;
             if(matched)
                 number_ = number;
 
-            return make_result(matched, i1);
+            return make_result(matched, i1, start);
         }
     private:
         template<class Iterator>
-        static T convert(Iterator i)
+        static unsigned convert(Iterator i)
         {
-            return *i >= '0' && *i <= '9' ? *i - '0'
+            return unsigned(*i >= '0' && *i <= '9' ? *i - '0'
                 : *i >= 'A' && *i <= 'F' ? *i - 'A' + 10
-                : *i - 'a' + 10;
+                : *i - 'a' + 10);
         }
     };
 
     //-------------------------------------------------------------------------
     /// r_oct_t rule matches unsigned oct number
+    /// a number that doesn't fit T fails and isn't assigned
     //-------------------------------------------------------------------------
     template<class T>
     class r_oct_t 
@@ -214,23 +296,25 @@ namespace axe
         {
             T number{ 0 };
             auto start = i1;
+            auto fits = true;
 
             for(; i1 != i2 && is_oct()(*i1); ++i1)
             {
-                number = number * 8 + *i1 - '0';
+                fits = fits && detail::append_digit(number, 8, unsigned(*i1 - '0'), false);
             }
 
-            auto matched = i1 != start;
+            auto matched = i1 != start && fits;
 
             if(matched)
                 number_ = number;
 
-            return make_result(matched, i1);
+            return make_result(matched, i1, start);
         }
     };
 
     //-------------------------------------------------------------------------
     /// r_binary_t rule matches unsigned binary number
+    /// a number that doesn't fit T fails and isn't assigned
     //-------------------------------------------------------------------------
     template<class T>
     class r_binary_t 
@@ -244,53 +328,31 @@ namespace axe
         {
             T number{ 0 };
             auto start = i1;
+            auto fits = true;
 
             for(; i1 != i2 && is_bin()(*i1); ++i1)
             {
-                number = number * 2 + *i1 - '0';
+                fits = fits && detail::append_digit(number, 2, unsigned(*i1 - '0'), false);
             }
 
-            auto matched = i1 != start;
+            auto matched = i1 != start && fits;
             if(matched)
                 number_ = number;
 
-            return make_result(matched, i1);
+            return make_result(matched, i1, start);
         }
     };
+
+    //-------------------------------------------------------------------------
+    // the rules for numbers with a fraction match with the specializations for void,
+    // which are declared first, then the versions storing the value convert the matched text
+    //-------------------------------------------------------------------------
+    template<class T = void> class r_ufixed_t;
+    template<class T = void> class r_fixed_t;
+    template<class T = void> class r_double_t;
 
     //-------------------------------------------------------------------------
     /// r_ufixed_t rule matches unsigned fixed-point number
-    //-------------------------------------------------------------------------
-    template<class T = void>
-    class r_ufixed_t 
-    {
-        T& number_;
-    public:
-        explicit r_ufixed_t(T& number) : number_(number) {}
-
-        template<class Iterator, class Iterator2>
-        result<Iterator> operator() (Iterator i1, Iterator2 i2) const
-        {
-            unsigned u1 = 0;
-            unsigned u2 = 0;
-            unsigned length = 0;
-
-            auto result =
-                (
-                    r_udecimal_t<unsigned>(u1)
-                    & ~('.' & ~(r_udecimal_t<unsigned>(u2) >> e_length(length)))
-                    | '.' & r_udecimal_t<unsigned>(u2) >> e_length(length)
-                    )(i1, i2);
-
-            if(result.matched)
-            {
-                number_ = u1 + u2 / pow(T(10), T(length));
-            }
-
-            return make_result(result.matched, result.position, i1);
-        }
-    };
-
     //-------------------------------------------------------------------------
     template<>
     class r_ufixed_t<void> 
@@ -311,34 +373,6 @@ namespace axe
     //-------------------------------------------------------------------------
     /// r_fixed_t rule matches signed fixed-point number
     //-------------------------------------------------------------------------
-    template<class T = void>
-    class r_fixed_t 
-    {
-        T&  number_;
-    public:
-
-        explicit r_fixed_t(T& number) : number_(number) {}
-
-        template<class Iterator, class Iterator2>
-        result<Iterator> operator() (Iterator i1, Iterator2 i2) const
-        {
-            char sign = 0;
-
-            auto result = // optional sign
-                (
-                    ~(r_char<char>('-') >> sign | '+')
-                    & ~r_predstr(is_space())
-                    & r_ufixed_t<T>(number_)
-                    )(i1, i2);
-
-            if(result.matched && sign == '-')
-                number_ *= -1;
-
-            return result;
-        }
-    };
-
-    //-------------------------------------------------------------------------
     template<>
     class r_fixed_t<void> 
     {
@@ -358,44 +392,6 @@ namespace axe
     //-------------------------------------------------------------------------
     /// r_double_t matches floating point number
     //-------------------------------------------------------------------------
-    template<class T = void>
-    class r_double_t 
-    {
-        T& d_;
-
-    public:
-
-        explicit r_double_t(T& d) : d_(d) {}
-
-        template<class Iterator, class Iterator2>
-        result<Iterator> operator() (Iterator i1, Iterator2 i2) const
-        {
-            char sign(0);
-            unsigned i(0);
-            unsigned frac(0);
-            int flen(0);
-            int e(0);
-
-            auto result =
-                (
-                    ~(r_lit('-') >> sign | '+')
-                    & ~r_predstr(is_space())
-                    &
-                    (
-                        r_udecimal_t<unsigned>(i) & ~('.' & ~r_udecimal_t<unsigned>(frac) >> e_length(flen))
-                        | '.' & r_udecimal_t<unsigned>(frac) >> e_length(flen)
-                        )
-                    & ~(r_any("eE") & r_decimal_t<int>(e))
-                    )(i1, i2);
-
-            if(result.matched)
-                d_ = (sign == '-' ? -1 : 1) * (T(i) + frac / pow(T(10), T(flen))) * pow(T(10), T(e));
-
-            return result;
-        }
-    };
-
-    //-------------------------------------------------------------------------
     template<>
     class r_double_t<void> 
     {
@@ -414,6 +410,78 @@ namespace axe
                         )
                     & ~(r_any("eE") & r_decimal_t<>())
                     )(i1, i2);
+        }
+    };
+
+    //-------------------------------------------------------------------------
+    /// r_ufixed_t rule matches unsigned fixed-point number and assigns it
+    /// a number that doesn't fit T fails and isn't assigned
+    //-------------------------------------------------------------------------
+    template<class T>
+    class r_ufixed_t 
+    {
+        T& number_;
+    public:
+        explicit r_ufixed_t(T& number) : number_(number) {}
+
+        template<class Iterator, class Iterator2>
+        result<Iterator> operator() (Iterator i1, Iterator2 i2) const
+        {
+            auto result = r_ufixed_t<>()(i1, i2);
+
+            if(result.matched && !detail::assign_floating(number_, i1, result.position))
+                return make_result(false, i1);
+
+            return make_result(result.matched, result.position, i1);
+        }
+    };
+
+    //-------------------------------------------------------------------------
+    /// r_fixed_t rule matches signed fixed-point number and assigns it
+    /// a number that doesn't fit T fails and isn't assigned
+    //-------------------------------------------------------------------------
+    template<class T>
+    class r_fixed_t 
+    {
+        T&  number_;
+    public:
+
+        explicit r_fixed_t(T& number) : number_(number) {}
+
+        template<class Iterator, class Iterator2>
+        result<Iterator> operator() (Iterator i1, Iterator2 i2) const
+        {
+            auto result = r_fixed_t<>()(i1, i2);
+
+            if(result.matched && !detail::assign_floating(number_, i1, result.position))
+                return make_result(false, i1);
+
+            return result;
+        }
+    };
+
+    //-------------------------------------------------------------------------
+    /// r_double_t matches floating point number and assigns it
+    /// a number that doesn't fit T, too large or too small, fails and isn't assigned
+    //-------------------------------------------------------------------------
+    template<class T>
+    class r_double_t 
+    {
+        T& d_;
+
+    public:
+
+        explicit r_double_t(T& d) : d_(d) {}
+
+        template<class Iterator, class Iterator2>
+        result<Iterator> operator() (Iterator i1, Iterator2 i2) const
+        {
+            auto result = r_double_t<>()(i1, i2);
+
+            if(result.matched && !detail::assign_floating(d_, i1, result.position))
+                return make_result(false, i1);
+
+            return result;
         }
     };
 

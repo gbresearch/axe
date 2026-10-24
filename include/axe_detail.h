@@ -29,6 +29,12 @@
 #pragma once
 #include <locale>
 #include <algorithm>
+#include <charconv>
+#include <limits>
+#include <sstream>
+#include <string>
+#include <system_error>
+#include <type_traits>
 #include "axe_trait.h"
 
 namespace axe
@@ -83,5 +89,123 @@ namespace axe
 				[&](charT c) { return std::tolower(c, loc); });
 			return str;
 		}
+
+        //-------------------------------------------------------------------------
+        // number conversions of the numeric rules and the extractors; std::from_chars converts exactly
+        // and independently of the locale
+        //-------------------------------------------------------------------------
+        enum class number_status { ok, invalid, out_of_range };
+
+        /// copies the text of a number from the input to a narrow string, as std::from_chars needs it;
+        /// returns false if an element isn't an ASCII character
+        template<class I, class I2>
+        bool number_text(I i1, I2 i2, std::string& text)
+        {
+            text.clear();
+            for (; i1 != i2; ++i1)
+            {
+                using C = std::remove_cv_t<std::remove_reference_t<decltype(*i1)>>;
+                const C c = *i1;
+                bool ascii = false;
+                if constexpr (std::is_signed_v<C>)
+                    ascii = c >= 0 && c <= 127;
+                else
+                    ascii = c <= 127;
+                if (!ascii)
+                    return false;
+                text.push_back(static_cast<char>(c));
+            }
+            return true;
+        }
+
+        /// converts a floating-point number in the format of std::from_chars with a stream,
+        /// for standard libraries without std::from_chars for floating-point types
+        template<class T>
+        number_status to_floating_stream(const std::string& number, T& value)
+        {
+            std::istringstream is(number);
+            is.imbue(std::locale::classic());
+            T v{};
+            is >> v;
+            if (is.fail())  // a number too large is read as the largest value and fails
+                return v == std::numeric_limits<T>::max() || v == std::numeric_limits<T>::lowest()
+                    ? number_status::out_of_range : number_status::invalid;
+            if (is.peek() != std::char_traits<char>::eof())
+                return number_status::invalid;
+            value = v;
+            return number_status::ok;
+        }
+
+        /// converts text, which is white space, an optional sign, spaces, the number in the format of
+        /// std::from_chars and white space, to an integer or floating-point T; value isn't changed unless ok
+        template<class T>
+        number_status to_number(const std::string& text, T& value)
+        {
+            static_assert((std::is_integral_v<T> && !std::is_same_v<T, bool>) || std::is_floating_point_v<T>);
+            auto space = [](char c) { return c == ' ' || c == '\t' || c == '\n' || c == '\r'; };
+            size_t first = 0, last = text.size();
+            while (first < last && space(text[first]))
+                ++first;
+            while (last > first && space(text[last - 1]))
+                --last;
+
+            bool negative = false;
+            if (first < last && (text[first] == '+' || text[first] == '-'))
+            {
+                negative = text[first] == '-';
+                for (++first; first < last && space(text[first]); ++first);
+            }
+            if (first == last || text[first] == '+' || text[first] == '-')
+                return number_status::invalid;
+
+            const char* begin = text.data() + first;
+            const char* end = text.data() + last;
+            if constexpr (std::is_integral_v<T>)
+            {
+                // the magnitude is read as unsigned, so that the minimum of a signed T can be checked
+                using U = std::make_unsigned_t<T>;
+                U magnitude{};
+                auto res = std::from_chars(begin, end, magnitude);
+                if (res.ec == std::errc::invalid_argument || res.ptr != end)
+                    return number_status::invalid;
+                if (res.ec == std::errc::result_out_of_range)
+                    return number_status::out_of_range;
+                if (!negative)
+                {
+                    if (magnitude > U(std::numeric_limits<T>::max()))
+                        return number_status::out_of_range;
+                    value = T(magnitude);
+                }
+                else if constexpr (std::is_signed_v<T>)
+                {
+                    if (magnitude > U(U(std::numeric_limits<T>::max()) + 1u))
+                        return number_status::out_of_range;
+                    value = magnitude == 0 ? T(0) : T(-T(magnitude - 1) - 1);
+                }
+                else
+                {
+                    if (magnitude != 0)
+                        return number_status::out_of_range;
+                    value = T(0);
+                }
+                return number_status::ok;
+            }
+            else
+            {
+                const std::string number = (negative ? "-" : "") + std::string(begin, end);
+            #if defined(__cpp_lib_to_chars)
+                T v{};
+                auto res = std::from_chars(number.data(), number.data() + number.size(), v);
+                if (res.ec == std::errc::invalid_argument || res.ptr != number.data() + number.size())
+                    return number_status::invalid;
+                if (res.ec == std::errc::result_out_of_range)
+                    return number_status::out_of_range;
+                value = v;
+                return number_status::ok;
+            #else
+                return to_floating_stream(number, value);
+            #endif
+            }
+        }
 	}
 }

@@ -39,6 +39,9 @@
     <ClCompile Include="..\test\literal_test.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\test\number_test.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="..\test\reference.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
