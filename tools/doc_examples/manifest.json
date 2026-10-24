@@ -1,0 +1,525 @@
+{
+  "version": 1,
+  "snippets": [
+    {
+      "id": "include",
+      "heading": "Introduction",
+      "sha256": "483d3bb1fa59785577448209ef8ad36e5aa0d438d5b9cab47da634a1ef93972f",
+      "before": "",
+      "after": "\nint main() {  }\n",
+      "run": true
+    },
+    {
+      "id": "literals",
+      "heading": "AXE operator\"\"",
+      "sha256": "5b683bc4c83ac5e729991edd24c0057222e3199f91cd25a1d72316a48aeb5a00",
+      "before": "int main() {\n",
+      "after": "require(parse(assignment, \"name = 42;\").matched); require(parse(escaped, \"\\\\n\").matched);\n}\n",
+      "run": true
+    },
+    {
+      "id": "fail-callback",
+      "heading": "Example 1: `r_fail(F)`",
+      "sha256": "73e1df29ebf0c95b7578ae047aa1cedc54c182fb7334bcb9ecf5436420d6d30b",
+      "before": "int main() { auto A = r_str(\"abc\"); auto rule = ",
+      "after": "\nrequire(parse(rule, \"abc\").matched);\n}\n",
+      "run": true
+    },
+    {
+      "id": "bool-constraint",
+      "heading": "Example 2: `r_bool(b)`",
+      "sha256": "b76260a999735b818ee084f8d9948eddbb4908a75e69ae55e49fbff2b1b753a4",
+      "before": "int main() {\n",
+      "after": "require(parse(rule, \"42\").matched); require(!parse(rule, \"1001\").matched);\n}\n",
+      "run": true
+    },
+    {
+      "id": "range-constraint",
+      "heading": "Example 3: `r_constrained(R,C)`",
+      "sha256": "033de382fa5284153cb77f1c49b2dc4a1934861ce022f315f1fb8f6869863b06",
+      "before": "int main() {\n",
+      "after": "require(parse(rule, \"42\").matched); require(!parse(rule, \"1001\").matched);\n}\n",
+      "run": true
+    },
+    {
+      "id": "advance",
+      "heading": "Example 4: `r_advance(size)`",
+      "sha256": "1884c9a5db2ae18ebbcdd9b05262820239a04c10403eaa0ca910174bdcb6526d",
+      "before": "int main() { auto R = r_str(\"stop\");\n",
+      "after": "\n}\n",
+      "run": true
+    },
+    {
+      "id": "skipped-recursion",
+      "heading": "`r_rule` inside rules that change the iterator type",
+      "sha256": "6e421dd69d78c8e05f0bb0c5bca9af565bcc251a26a4690caabc4b99ab0ffe19",
+      "before": "int main() {\n",
+      "after": "require(matched);\n}\n",
+      "run": true
+    },
+    {
+      "id": "polymorphic",
+      "heading": "AXE polymorphic rule",
+      "sha256": "4606b758b83aa722ffed5d10463f0bc1ddbe923741a699ac23c6c3fbae02d0ed",
+      "before": "int main() { using Iterator = std::string::const_iterator;\n",
+      "after": "const std::string text = \"abc[2]\"; require(parse(a, text).matched);\n}\n",
+      "run": true
+    },
+    {
+      "id": "depth-limit",
+      "heading": "Limiting recursion depth",
+      "sha256": "30f8cf3c6764eca221363c6df73a6b2dc1c69584c0352567d90bed31eba8fb7d",
+      "before": "int main() { std::string text = \"[2]\"; using I = std::string::iterator; auto begin = text.begin(); auto end = text.end(); auto json_string = '\"'_axe & *(_ - '\"') & '\"';\n",
+      "after": "\n}\n",
+      "run": true,
+      "replacements": [
+        {
+          "old": "catch (const axe::depth_limit_exceeded<I>& ex)",
+          "new": "catch ([[maybe_unused]] const axe::depth_limit_exceeded<I>& ex)",
+          "count": 1,
+          "reason": "The illustrative catch body mentions ex only in comments; annotate that intentionally unused binding for warnings-as-errors checks."
+        }
+      ]
+    },
+    {
+      "id": "utf8",
+      "heading": "Validating UTF-8",
+      "sha256": "d52524206f9a05081a2cb2cb7917c07e3a3e357714fa562b0bc6aa52f9ac7ddd",
+      "before": "int main() { std::string text = \"valid UTF-8\"; auto json_escaped = r_any(\"\\\"\\\\/bfnrt\");\n",
+      "after": "require(valid); require(parse(json_char, \"a\").matched);\n}\n",
+      "run": true
+    },
+    {
+      "id": "write-xml",
+      "heading": "Example: `write_xml`",
+      "sha256": "e0e1f524b3a68ae29dce756ed556eda36dcd9197d4b1fe609b5a16b18a425d49",
+      "before": "int main() {\n",
+      "after": "\n}\n",
+      "run": true,
+      "output": "xml-output"
+    },
+    {
+      "id": "predicate-class",
+      "heading": "Creating custom predicates",
+      "sha256": "5dcc708801f939f9bf7d0e1c6c594a8bf0158784c519e04bd5bea08d9ccd45e1",
+      "before": "",
+      "after": "\nint main() { require(parse(r_pred(::is_num{}), \"4\").matched); }\n",
+      "run": true
+    },
+    {
+      "id": "predicate-lambda",
+      "heading": "Creating custom predicates",
+      "sha256": "00aadac90307c346bf5d9773c5f2d82bf97d3966acafa5fe08b0ca243cffa03d",
+      "before": "int main() {\n",
+      "after": "require(parse(number_rule, \"4\").matched); require(parse(numbers_rule, \"42\").matched);\n}\n",
+      "run": true
+    },
+    {
+      "id": "rule-class",
+      "heading": "Creating custom rules",
+      "sha256": "4e2b976b79626a6e4ecc61c8209bd3528486d2b7cd6241a83c4754108b6941fb",
+      "before": "",
+      "after": "\nint main() { test(); require(parse(custom{}, \"\\n\").matched); }\n",
+      "run": true
+    },
+    {
+      "id": "rule-lambda",
+      "heading": "Creating custom rules",
+      "sha256": "b7c859f91cb96a67e6f47f1dbe75f566609868e5c5c588008eac22c735a40b6c",
+      "before": "int main() {\n",
+      "after": "require(parse(custom, \"\\n\").matched);\n}\n",
+      "run": true
+    },
+    {
+      "id": "recursive-pseudocode",
+      "heading": "Recursive rules",
+      "sha256": "d1144f3e5d2c181cb226e4dfba1ee7ae88bcf403581b0d40c539b3b4b45c8225",
+      "before": "namespace doc_recursive {\n",
+      "after": "\n}\nint main() { int value = 0; const std::string text = \"(123)\"; require(parse(doc_recursive::r_expression<int>(value), text).matched); require(value == 123); }\n",
+      "run": true,
+      "replacements": [
+        {
+          "old": "struct r_group_t\n{\n    // skipped ...",
+          "new": "struct r_group_t\n{\n    T& value_;\n    explicit r_group_t(T& value) : value_(value) {}",
+          "count": 1,
+          "reason": "Supply the explicitly omitted stored value and constructor."
+        },
+        {
+          "old": "struct r_factor_t\n{\n    // skipped ...",
+          "new": "struct r_factor_t\n{\n    T& value_;\n    explicit r_factor_t(T& value) : value_(value) {}",
+          "count": 1,
+          "reason": "Supply the explicitly omitted stored value and constructor."
+        },
+        {
+          "old": "struct r_term_t\n{\n    // skipped ...",
+          "new": "struct r_term_t\n{\n    T& value_;\n    explicit r_term_t(T& value) : value_(value) {}",
+          "count": 1,
+          "reason": "Supply the explicitly omitted stored value and constructor."
+        },
+        {
+          "old": "struct r_expression\n{\n    // skipped ...",
+          "new": "struct r_expression\n{\n    T& value_;\n    explicit r_expression(T& value) : value_(value) {}",
+          "count": 1,
+          "reason": "Supply the explicitly omitted stored value and constructor."
+        },
+        {
+          "old": "& // skipped \u2026\n        )",
+          "new": "& axe::r_empty()",
+          "count": 1,
+          "reason": "Complete the omitted factor continuation with the empty rule, consuming the unmatched parenthesis."
+        },
+        {
+          "old": "& // skipped ...\n        )",
+          "new": "& axe::r_empty())",
+          "count": 1,
+          "reason": "Complete the omitted term continuation with the empty rule."
+        }
+      ]
+    },
+    {
+      "id": "parse-expression-signature",
+      "heading": "Recursive rules",
+      "sha256": "2b333cd8f3c93373080e6989280ada66ee42ebc6813ed670229be633871b340e",
+      "before": "namespace doc_signature {\n",
+      "after": " { return axe::parse_expression(str, def_value); }\n}\nint main() { require(doc_signature::parse_expression(\"3\"s, 0) == 3); }\n",
+      "run": true
+    },
+    {
+      "id": "recursive-function",
+      "heading": "Recursive rules",
+      "sha256": "ccb2e7c06ee4edc5bc2672b4f201642e369a3c3798dc76a63708b2306b7ff166",
+      "before": "int main() {\n",
+      "after": "require(parse(block, \"{{;}}\").matched);\n}\n",
+      "run": true
+    },
+    {
+      "id": "recursive-json",
+      "heading": "Recursive rules",
+      "sha256": "c5c107102e1832348601871d556a59533331e881f0c768b03fb4870b0e04a1e8",
+      "before": "int main() { using I = std::string::const_iterator; double d = 0; auto json_spaces = *_ws; auto json_string = '\"'_axe & *(_ - '\"') & '\"'; auto json_object = r_str(\"{}\");\n",
+      "after": "const std::string text = \"[2]\"; require(parse(std::ref(json_value), text).matched);\n}\n",
+      "run": true
+    },
+    {
+      "id": "extractor-chain",
+      "heading": "Example: `A >> E`",
+      "sha256": "423e352a5e167b4fca5603caecb814a637edfa2daf5cc754b22232e31482b543",
+      "before": "int main() {\n",
+      "after": "\n}\n",
+      "run": true,
+      "expected_stdout": "parsed identifier: an_identifier is 13 characters long"
+    },
+    {
+      "id": "fail-action",
+      "heading": "Example: `r_fail(F)`",
+      "sha256": "1ed1ce55ba5b4ac0a4a518bcd5cd78ec88892930b34cac88abb7a57211ba5f39",
+      "before": "int main() {\n",
+      "after": "require(parse(rule, \"identifier\").matched);\n}\n",
+      "run": true
+    },
+    {
+      "id": "action-class",
+      "heading": "Creating custom semantic actions",
+      "sha256": "7fa50f54d50d1baf3dea0277e725e2da18d18b7bdf54c753ebe435e60f72f8ec",
+      "before": "",
+      "after": "\nint main() { test(); size_t count = 0; require(parse(r_char('\\n') >> custom(count), \"\\n\").matched); require(count == 1); }\n",
+      "run": true
+    },
+    {
+      "id": "action-lambda",
+      "heading": "Creating custom semantic actions",
+      "sha256": "494f07059f7d0951f9e5994d640eb08b08a012af23c87af5c72f975576ceeae8",
+      "before": "int main() {\n",
+      "after": "require(count == 3);\n}\n",
+      "run": true
+    },
+    {
+      "id": "get-as-signature",
+      "heading": "Using parse tree",
+      "sha256": "adf00b0a46006f2c4f913d48148c6f262022a62e52a9e53ec670351c25f024bc",
+      "before": "namespace doc_signature {\n",
+      "after": "}\nint main() {}\n",
+      "run": true
+    },
+    {
+      "id": "write-xml-signature",
+      "heading": "Using parse tree",
+      "sha256": "21d10bbb9f5328d9814c97f8fdee86ebdc53a90f6e96f0de6036554f208408c9",
+      "before": "namespace doc_signature { using doc_data = axe::it_pair<const char*>;\n",
+      "after": "}\nint main() {}\n",
+      "run": true,
+      "replacements": [
+        {
+          "old": "parse-tree-data",
+          "new": "doc_data",
+          "count": 1,
+          "reason": "Replace the prose placeholder type by a concrete parse-tree leaf type."
+        }
+      ]
+    },
+    {
+      "id": "example-includes",
+      "heading": "Examples",
+      "sha256": "e59848e97a9dd169672b4ce07a28ff2ab07ed751265019a9d6f0e2e11153d103",
+      "before": "",
+      "after": "\nint main() {  }\n",
+      "run": true
+    },
+    {
+      "id": "zip-rule",
+      "heading": "Zip code parser",
+      "sha256": "710ff18adbb583ada95b4c90f0be40b7ca400f607f34630510b9572974cb981e",
+      "before": "int main() {\n",
+      "after": "require(parse(zip_rule, \"94303-1011\").matched);\n}\n",
+      "run": true
+    },
+    {
+      "id": "zip-parser",
+      "heading": "Zip code parser",
+      "sha256": "c6c355cb5a26da57c5fa2468e0af9ed44d47719e3a8c5599c88d6752133608ed",
+      "before": "",
+      "after": "\nint main() { test_zip(); }\n",
+      "run": true
+    },
+    {
+      "id": "telephone-rules",
+      "heading": "Telephone number parser",
+      "sha256": "50929c18c4a683798435c76e85426809c30adff44ccb16e563be81f4e9ca1374",
+      "before": "int main() {\n",
+      "after": "require(parse(tel1, \"(650)329-2100\").matched); require(parse(tel2, \"650-329-2258\").matched); require(parse(tel3, \"1-650-329-2258\").matched); require(parse(tel4, \"650.329.2258\").matched);\n}\n",
+      "run": true
+    },
+    {
+      "id": "telephone-parser",
+      "heading": "Telephone number parser",
+      "sha256": "dc4618cfddbbb71cdd96d38adf228407d91a7708732683677111d7f54c1043f6",
+      "before": "",
+      "after": "\nint main() { test_tel(); }\n",
+      "run": true,
+      "output": "telephone-output"
+    },
+    {
+      "id": "csv-parser",
+      "heading": "CSV parser",
+      "sha256": "25491612d6696a8f853f36a0ebd855368f3bd6b96fdd61cd8bd568b57dcd9bb9",
+      "before": "",
+      "after": "\nint main() { test_cvs(); }\n",
+      "run": true
+    },
+    {
+      "id": "ini-parser",
+      "heading": "INI File parser",
+      "sha256": "4e2dd6ce6f7fa6ac0915f9da050c72739873c829fc5726ab0b9a526ff028f83d",
+      "before": "",
+      "after": "\nint main() { const std::string text; ini(text.begin(), text.end()); }\n",
+      "run": true
+    },
+    {
+      "id": "ini-test",
+      "heading": "INI File parser",
+      "sha256": "d59e0e01ce9eedbd78d54c0257007435081fc028541fb0c38f50a30a9cc3dbb3",
+      "before": "",
+      "after": "\nint main() { test_ini(); }\n",
+      "run": true,
+      "dependencies": [
+        "ini-parser"
+      ],
+      "output": "ini-output"
+    },
+    {
+      "id": "command-parser",
+      "heading": "Command line parser",
+      "sha256": "ae66355c5d88684038bb846ff87e964165d015796aa5317efb4af0c7bf2f9f37",
+      "before": "",
+      "after": "\nint main() { test_cmd(); }\n",
+      "run": true
+    },
+    {
+      "id": "windows-paths",
+      "heading": "Windows Path Parser",
+      "sha256": "fe56ac4f6541dd048d593de1fc4c71310ef7b83d2dee5b78dda1fcfd2000480c",
+      "before": "",
+      "after": "\nint main() { test_paths(); }\n",
+      "run": true,
+      "output": "paths-output"
+    },
+    {
+      "id": "roman",
+      "heading": "Roman Numerals",
+      "sha256": "5a8eac62e856712d1ba0c65b1d8ce72af206344770a4bc797034daaf7dcbb232",
+      "before": "",
+      "after": "\nint main() { test_roman(); }\n",
+      "run": true,
+      "output": "roman-output",
+      "output_whitespace": [
+        {
+          "old": "1 2356 3123 23 56 3457 786 899 3567\n",
+          "new": "1 2356 3123 23 56 3457 786 899 3567 \n",
+          "count": 1,
+          "reason": "The guide output omits the single trailing space explicitly emitted after the final Roman numeral; retain the guide byte-identical."
+        }
+      ]
+    },
+    {
+      "id": "json-parser",
+      "heading": "JSON Parser",
+      "sha256": "281a000a945ec18516d576b36e71235909efbeb7c0bb445435562b9feb593247",
+      "before": "",
+      "after": "\nint main() { test_json(); }\n",
+      "run": true,
+      "output": "json-output",
+      "output_whitespace": [
+        {
+          "old": "JSON object parsed:\n",
+          "new": "JSON object parsed: \n",
+          "count": 1,
+          "reason": "The guide output omits the single trailing space explicitly emitted by the example before its input newline; retain the guide byte-identical."
+        }
+      ]
+    },
+    {
+      "id": "replacement-template",
+      "heading": "Replacement Parser",
+      "sha256": "877bd52df4678b9ca971da8f5c983962720c65f5f8556688adad681b5cd340d3",
+      "before": "",
+      "after": "\nint main() { const auto result = replace(\"x\"s, axe::r_str(\"x\"), \"y\"s); require(std::get<0>(result) == \"y\"); require(std::get<1>(result) == 1); }\n",
+      "run": true
+    },
+    {
+      "id": "replacement-test",
+      "heading": "Replacement Parser",
+      "sha256": "96f29a25ca80069b86ae8de2005b1f0ca25e35cbd3d14299b12105925bfb94f2",
+      "before": "",
+      "after": "\nint main() { test_replacement(); }\n",
+      "run": true,
+      "dependencies": [
+        "replacement-template"
+      ]
+    },
+    {
+      "id": "word-other",
+      "heading": "A word counting program",
+      "sha256": "99b85606679468196e24b3d452388b13dd90859c3f5311ba7f60c90fe8ddcd10",
+      "before": "int main() {\n",
+      "after": "require(parse(other, \"!?\").matched);\n}\n",
+      "run": true
+    },
+    {
+      "id": "word-extractor",
+      "heading": "A word counting program",
+      "sha256": "20b54be99273590f143a94e7404ac4556220eec90f488a7580964be156dfd14d",
+      "before": "class doc_words { using token_t = std::vector<unsigned char>; unsigned nnumber_ = 0; std::set<token_t> numbers_; public: void check() { auto rule =\n",
+      "after": "; require(parse(rule, \"42\").matched); require(nnumber_ == 1 && numbers_.size() == 1); } };\nint main() { doc_words{}.check(); }\n",
+      "run": true
+    },
+    {
+      "id": "word-counter",
+      "heading": "A word counting program",
+      "sha256": "989738f1764cd0539e05b64df0782ceae476e243c4d86bf3195678687fbda7be",
+      "before": "",
+      "after": "",
+      "run": true,
+      "input_file": "words.txt",
+      "replacements": [
+        {
+          "old": "auto p = axe::parse(file, begin, end);",
+          "new": "[[maybe_unused]] auto p = axe::parse(file, begin, end);",
+          "count": 1,
+          "reason": "The illustrative word counter stores the parse result without inspecting it; annotate that intentionally unused binding for warnings-as-errors checks."
+        }
+      ]
+    },
+    {
+      "id": "wildcard-rule",
+      "heading": "Wildcard parser",
+      "sha256": "668f2f50dc5284fa7ed7e9a9c99c02e84a1b599f06db056a179eecab3dfc19a6",
+      "before": "",
+      "after": "\nint main() { const std::string text = \"abc123xyz\"; auto rule = wildcard(\"abc*xyz\"); require(parse(rule, text).matched); }\n",
+      "run": true
+    },
+    {
+      "id": "wildcard-test",
+      "heading": "Wildcard parser",
+      "sha256": "01439a3b05d8b08f036d5a219d481a7c25dc30eee01bc2e0aa9d3019c85b4317",
+      "before": "",
+      "after": "\nint main() { test_wildcard(); }\n",
+      "run": true,
+      "dependencies": [
+        "wildcard-rule"
+      ],
+      "output": "wildcard-output"
+    }
+  ],
+  "other_blocks": [
+    {
+      "id": "xml-output",
+      "language": "xml",
+      "heading": "Example: `write_xml`",
+      "sha256": "164306f1b8e95e06290b155874e4f21f551e0bde414be9b5ede38e8317551db9",
+      "role": "output"
+    },
+    {
+      "id": "telephone-output",
+      "language": "text",
+      "heading": "Telephone number parser",
+      "sha256": "75937a6a202a8a91a77986b241f2215542bdf0670e86ab2c50497b6e57a2c21e",
+      "role": "output"
+    },
+    {
+      "id": "csv-input",
+      "language": "text",
+      "heading": "CSV parser",
+      "sha256": "03729a14a6e4a95b8df42d4c0a63fe9432a57119c292cdf8e35f0a9c1832eb49",
+      "role": "input"
+    },
+    {
+      "id": "ini-grammar",
+      "language": "text",
+      "heading": "INI File parser",
+      "sha256": "bce082daa5c718ee306c9b4a068f6279ec3e06eadda9f2eff38763862cc0a1e6",
+      "role": "grammar"
+    },
+    {
+      "id": "ini-output",
+      "language": "xml",
+      "heading": "INI File parser",
+      "sha256": "862ecc819c6e0668ae01dd11a199f7adde0204b73330ce47c0fc4be5e186f729",
+      "role": "output"
+    },
+    {
+      "id": "command-grammar",
+      "language": "text",
+      "heading": "Command line parser",
+      "sha256": "9512c4ee66aa5b0271c305c5c756fca22f87c93bdfa90be5e757a24454eb84f7",
+      "role": "grammar"
+    },
+    {
+      "id": "paths-output",
+      "language": "text",
+      "heading": "Windows Path Parser",
+      "sha256": "90927389cc192b9b10f708af6af480b12875dd5936e9a4cc9ea54347473ac55f",
+      "role": "output"
+    },
+    {
+      "id": "roman-output",
+      "language": "text",
+      "heading": "Roman Numerals",
+      "sha256": "c65b0d7573dcb31f6c52a50e6ca9b378ef32f786f0f8f00e1dc0a0cd7794eeb0",
+      "role": "output"
+    },
+    {
+      "id": "json-output",
+      "language": "text",
+      "heading": "JSON Parser",
+      "sha256": "5dc1d185763e6b9360e6cebd3b0b54ee15bb2c777d435ec944c8eb5de402bd95",
+      "role": "output"
+    },
+    {
+      "id": "wildcard-output",
+      "language": "text",
+      "heading": "Wildcard parser",
+      "sha256": "d3830b75dbe799eaca6f3e6acb6cab017fb60205d3067caffb4425a93f76b265",
+      "role": "output"
+    }
+  ]
+}

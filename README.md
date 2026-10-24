@@ -31,7 +31,8 @@ cd axe
 
 ### Visual Studio
 
-`vs/AXE.sln` builds and runs `vs/axe_test.vcxproj`, x64 Debug and Release.
+`vs/AXE.sln` builds `vs/axe_test.vcxproj`, x64 Debug and Release. Run the resulting
+`axe_test.exe` to execute the tests.
 
 ### GCC or Clang on Linux
 
@@ -45,6 +46,8 @@ make -j8 test CONFIG=debug          # debug (-O0 -g)
 make -j8 test WERROR=1              # warnings are errors
 make test YADRO_DIR=path/to/yadro   # Yadro somewhere other than ../yadro
 make check-headers CXXSTD=-std=c++17   # each header compiles on its own at a language level
+make check-docs CXX=g++-14           # compile the guide's examples and verify their output (Python 3)
+make check-build-tools CXX=g++-14    # regression tests for header caching and the example checker
 make docs                           # the Library Reference PDF from docs/AXE-Reference.md, see docs/README.md
 make clean                          # remove this compiler's and configuration's outputs
 make help                           # all options
@@ -61,8 +64,32 @@ make help                           # all options
 - `CPPFLAGS`, `CXXFLAGS`, `LDFLAGS` and `LDLIBS` are added to the flags, e.g. for sanitizers:
 
   ```sh
-  make -j8 test CONFIG=debug CXXFLAGS=-fsanitize=address,undefined LDFLAGS=-fsanitize=address,undefined
+  make -j8 test CXX=g++-14 CONFIG=debug WERROR=1 PLATFORM=linux-gcc-asan \
+      CXXFLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer" LDFLAGS=-fsanitize=address,undefined
   ```
+
+  Use a separate `PLATFORM` for a sanitizer build so ordinary test objects aren't reused. For GCC's
+  ThreadSanitizer, retain its unsupported-feature warnings while allowing the build to proceed:
+
+  ```sh
+  make -j8 test CXX=g++-14 CONFIG=debug WERROR=1 PLATFORM=linux-gcc-tsan \
+      CXXFLAGS="-fsanitize=thread -Wno-error=tsan" LDFLAGS=-fsanitize=thread
+  ```
+
+  GCC's TSan does not support `std::atomic_thread_fence`; Yadro's test framework uses these fences.
+  `-Wno-error=tsan` keeps that limitation visible instead of suppressing it with `-Wno-tsan`.
+  A successful build alone does not establish that TSan ran successfully or supports those operations.
+  See [GCC's warning documentation](https://gcc.gnu.org/onlinedocs/gcc-14.3.0/gcc/Warning-Options.html#index-Wno-tsan).
+
+The GitHub Actions workflow runs MSVC v145 on Windows and GCC 14/Clang 20 on Linux, each in Debug and
+Release, using a pinned Yadro revision. It also checks the standalone headers, guide examples and
+verification tooling. The Windows job explicitly runs the built test executable through
+`tools/ci_msvc.ps1`; locally, `./tools/ci_msvc.ps1 -Configuration Debug` performs the same checks from
+a Visual Studio 2026 installation. See [the workflow](.github/workflows/ci.yml).
+
+`check-headers` caches successful checks only while the compiler identity, language standard and flags
+are unchanged. Switching `CXXSTD`, `CPPFLAGS` or `CXXFLAGS` invalidates that cache. See
+[the example-checker instructions](tools/doc_examples/README.md) for fragment completion and expected-output fixtures.
 
 ## Literal shortcuts: `_axe`, `_any`, `_regex`
 

@@ -1,0 +1,139 @@
+name: C++ verification
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux:
+    name: ${{ matrix.compiler }} / ${{ matrix.config }}
+    # Keep the OS explicit: ubuntu-latest changes its default compiler and OS.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [g++-14, clang++-20]
+        config: [debug, release]
+    defaults:
+      run:
+        shell: bash
+        working-directory: axe
+    steps:
+      - name: Check out AXE
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          path: axe
+          persist-credentials: false
+      - name: Check out the tested Yadro dependency
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          repository: gbresearch/yadro
+          ref: 63cb420e415978a28bb8bcb6136e36c1f16ca894
+          path: yadro
+          persist-credentials: false
+      - name: Install GCC 14 and its C++ library
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y g++-14 libstdc++-14-dev
+      - name: Install Clang 20 from the signed LLVM repository
+        if: matrix.compiler == 'clang++-20'
+        # LLVM's landing page tracks newer releases, but this Noble suite still
+        # publishes Clang 20.1.8. Do not use the moving llvm.sh default version.
+        # https://apt.llvm.org/noble/dists/llvm-toolchain-noble-20/Release
+        run: |
+          curl --fail --silent --show-error --location \
+            https://apt.llvm.org/llvm-snapshot.gpg.key -o "$RUNNER_TEMP/llvm.asc"
+          gpg --dearmor --output "$RUNNER_TEMP/llvm.gpg" "$RUNNER_TEMP/llvm.asc"
+          sudo install -m 0644 "$RUNNER_TEMP/llvm.gpg" /usr/share/keyrings/llvm.gpg
+          echo 'deb [signed-by=/usr/share/keyrings/llvm.gpg] https://apt.llvm.org/noble/ llvm-toolchain-noble-20 main' \
+            | sudo tee /etc/apt/sources.list.d/llvm20.list
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y clang-20
+      - name: Record compiler and dependency versions
+        env:
+          CXX: ${{ matrix.compiler }}
+        run: |
+          "$CXX" --version
+          "$CXX" -v -E -x c++ /dev/null
+          git -C ../yadro rev-parse HEAD
+      - name: Build and run all tests
+        env:
+          CXX: ${{ matrix.compiler }}
+          CONFIG: ${{ matrix.config }}
+        run: make -j2 test WERROR=1
+      - name: Compile every public header in C++17, C++20, and C++23
+        env:
+          CXX: ${{ matrix.compiler }}
+        run: |
+          for standard in c++17 c++20 c++23; do
+            make -j2 check-headers CXXSTD="-std=$standard"
+          done
+      - name: Compile and run documentation examples
+        env:
+          CXX: ${{ matrix.compiler }}
+        run: python3 tools/check_docs.py --compiler "$CXX" --std c++23
+      - name: Check documentation verification tooling
+        run: python3 -m unittest discover -s tools -p test_check_docs.py -v
+      - name: Check header build cache regressions
+        if: matrix.compiler == 'g++-14' && matrix.config == 'debug'
+        run: python3 tools/test_header_cache.py --compiler g++-14
+      - name: Preserve failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: linux-${{ matrix.compiler }}-${{ matrix.config }}-diagnostics
+          path: |
+            axe/build/**/*.log
+            axe/build/**/*.cpp
+          if-no-files-found: ignore
+          retention-days: 7
+
+  windows:
+    name: MSVC v145 / ${{ matrix.config }}
+    # v145 is provided by VS 2026, not the VS 2022 windows-2025 image.
+    # https://github.com/actions/runner-images/blob/main/images/windows/Windows2025-VS2026-Readme.md
+    runs-on: windows-2025-vs2026
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        config: [Debug, Release]
+    steps:
+      - name: Check out AXE
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          path: axe
+          persist-credentials: false
+      - name: Check out the tested Yadro dependency
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          repository: gbresearch/yadro
+          ref: 63cb420e415978a28bb8bcb6136e36c1f16ca894
+          path: yadro
+          persist-credentials: false
+      - name: Build, run, and verify headers and documentation
+        shell: pwsh
+        working-directory: axe
+        env:
+          CONFIGURATION: ${{ matrix.config }}
+        run: ./tools/ci_msvc.ps1 -Configuration $env:CONFIGURATION
+      - name: Preserve failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: windows-msvc-${{ matrix.config }}-diagnostics
+          path: |
+            axe/build/**/*.log
+            axe/build/**/*.binlog
+            axe/build/**/*.cpp
+          if-no-files-found: ignore
+          retention-days: 7

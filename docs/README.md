@@ -25,6 +25,14 @@ Requirements:
 - [pandoc](https://pandoc.org/installing.html) 2.19 or later;
 - a Chromium-based browser 131 or later: Google Chrome, Chromium or Microsoft Edge. It prints the page footer and numbers with CSS `@page` margin boxes, which older versions ignore.
 
+The examples are checked separately from PDF rendering. From the repository root, run
+`make check-docs CXX=g++-14` (or `CXX=clang++-20`). On Windows, from a Visual Studio developer shell, run
+`python tools/check_docs.py --compiler cl --std latest`. Python 3 is required; Yadro is not.
+The checker extracts every C++ fence from `AXE-Reference.md`, compiles it with explicit fragment
+fixtures, and verifies the output of runnable examples. Unaccounted or changed examples fail rather
+than being silently skipped. The fixtures and their completion policy are described in
+[`tools/doc_examples/README.md`](../tools/doc_examples/README.md). GitHub Actions runs these checks.
+
 ### Linux and macOS
 
 ```sh

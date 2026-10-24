@@ -16,6 +16,8 @@
 #   make -j8 WERROR=1             warnings are errors
 #   make test                     build and run the tests; TEST_ARGS="--suite axe" passes arguments
 #   make check-headers            each header under include/ compiles on its own
+#   make check-docs               compile the guide's examples and verify their output (Python 3)
+#   make check-build-tools        regression tests for the verification tools (Python 3)
 #   make docs                     the Library Reference PDF from docs/AXE-Reference.md (pandoc, Chrome)
 #   make clean                    remove the outputs of this compiler and configuration
 #   make clean-all                remove the outputs of every compiler and configuration on this OS
@@ -61,7 +63,7 @@ COMPILER_MAJOR := $(firstword $(subst ., ,$(shell $(CXX) -dumpversion 2>/dev/nul
 MIN_MAJOR      := $(if $(filter clang,$(COMPILER_ID)),20,14)
 
 # an older compiler fails with errors deep in the Yadro headers, so say what is needed instead
-ifneq ($(filter-out help clean clean-all check-headers docs,$(or $(MAKECMDGOALS),all)),)
+ifneq ($(filter-out help clean clean-all check-headers check-docs check-build-tools docs,$(or $(MAKECMDGOALS),all)),)
   ifeq ($(shell [ "$(COMPILER_MAJOR)" -ge $(MIN_MAJOR) ] 2>/dev/null && echo ok),)
     $(error $(CXX) is $(COMPILER_ID) $(or $(COMPILER_MAJOR),of unknown version); the tests (Yadro gbtest) need GCC 14 or Clang 20 or later, e.g. make CXX=g++-14)
   endif
@@ -86,7 +88,7 @@ PLATFORM ?= $(OS_NAME)-$(notdir $(firstword $(CXX)))
 YADRO_DIR ?= ../yadro
 YADRO_HEADER := $(YADRO_DIR)/util/gbtest.h
 
-ifneq ($(filter-out help clean clean-all check-headers docs,$(or $(MAKECMDGOALS),all)),)
+ifneq ($(filter-out help clean clean-all check-headers check-docs check-build-tools docs,$(or $(MAKECMDGOALS),all)),)
   ifeq ($(wildcard $(YADRO_HEADER)),)
     $(error $(YADRO_HEADER) not found: clone https://github.com/gbresearch/yadro next to this repository, or pass YADRO_DIR=<path to yadro>)
   endif
@@ -118,6 +120,7 @@ endif
 STACKTRACE_LIBS ?= -lstdc++exp
 
 CXXSTD     ?= -std=c++23
+PYTHON     ?= python3
 AXE_FLAGS   = -Iinclude $(CPPFLAGS) $(CXXSTD) $(CONFIG_FLAGS) -pthread
 DEPFLAGS    = -MMD -MP
 
@@ -155,7 +158,7 @@ TEST_OBJECTS := $(TEST_SOURCES:%.cpp=$(TEST_OBJ_DIR)/%.o)
 #-----------------------------------------------------------------------------
 # build
 
-.PHONY: all test check-headers docs clean clean-all help
+.PHONY: all test check-headers check-docs check-build-tools docs clean clean-all help FORCE
 
 all: $(TEST_EXE)
 
@@ -176,17 +179,38 @@ test: $(TEST_EXE)
 
 CHECK_HEADERS := $(sort $(wildcard include/*.h))
 CHECK_UNITS   := $(CHECK_HEADERS:include/%.h=$(CHECK_DIR)/%.h.ok)
+CHECK_CONFIG  := $(CHECK_DIR)/.config
 CHECK_FLAGS    = -Iinclude $(CPPFLAGS) $(CXXSTD) -Wall -Wextra -Wpedantic -Werror $(CXXFLAGS) \
                  -fsyntax-only -MMD -MP -MF $@.d -MT $@
 
 check-headers: $(CHECK_UNITS)
-	@echo "check-headers: all $(words $(CHECK_UNITS)) headers compiled ($(CXX) $(CXXSTD))"
+	@echo "check-headers: all $(words $(CHECK_UNITS)) headers verified ($(CXX) $(CXXSTD))"
 
-$(CHECK_DIR)/%.h.ok: include/%.h
+# Preserve cache hits for identical invocations, but invalidate checks when the compiler,
+# standard or effective flags change. Quote literal flag strings before giving them to sh.
+sh_quote = '$(subst ','"'"',$(1))'
+
+FORCE:
+
+$(CHECK_CONFIG): FORCE
+	@mkdir -p $(@D)
+	@set -eu; temporary="$@.tmp.$$$$"; trap 'rm -f "$$temporary"' EXIT HUP INT TERM; \
+	    { printf '%s\n' $(call sh_quote,$(CXX)) $(call sh_quote,$(CHECK_FLAGS)); \
+	      command -v $(call sh_quote,$(firstword $(CXX))); $(CXX) --version; } > "$$temporary"; \
+	    if ! cmp -s "$$temporary" "$@"; then mv -f "$$temporary" "$@"; fi
+
+$(CHECK_DIR)/%.h.ok: include/%.h $(CHECK_CONFIG)
 	@mkdir -p $(@D)
 	@printf '#include <%s>\n' $*.h > $(CHECK_DIR)/$*.h.cpp
 	$(CXX) $(CHECK_FLAGS) $(CHECK_DIR)/$*.h.cpp
 	@touch $@
+
+check-docs:
+	$(PYTHON) tools/check_docs.py --compiler $(call sh_quote,$(CXX)) --std $(patsubst -std=%,%,$(CXXSTD))
+
+check-build-tools:
+	$(PYTHON) tools/test_header_cache.py --compiler $(call sh_quote,$(CXX))
+	$(PYTHON) -m unittest discover -s tools -p 'test_check_docs.py'
 
 #-----------------------------------------------------------------------------
 # docs: the Library Reference PDF. pandoc converts the GitHub-flavored Markdown source to HTML and a
