@@ -35,9 +35,23 @@
 
 #include "axe_exception.h"
 #include "axe_trait.h"
+#include "axe_predicate.h"
 
 namespace axe
 {
+    namespace detail
+    {
+        // operator-> of an iterator, which can be a pointer
+        template<class I>
+        auto arrow(const I& it)
+        {
+            if constexpr (std::is_pointer_v<I>)
+                return it;
+            else
+                return it.operator->();
+        }
+    }
+
     //-------------------------------------------------------------------------
     // iterator pair
     //-------------------------------------------------------------------------
@@ -154,7 +168,7 @@ namespace axe
         }
 
         decltype(auto) operator* () const { return *begin_; }
-        decltype(auto) operator->() const { return begin_.operator->(); }
+        decltype(auto) operator->() const { return detail::arrow(begin_); }
         bool operator== (const skip_iterator& other) const { return begin_ == other.begin_; }
         bool operator!= (const skip_iterator& other) const { return !operator==(other); }
         auto& operator= (const skip_iterator& i) { begin_ = i.begin_; return *this; }
@@ -213,43 +227,39 @@ namespace axe
 
         void skip(I& it) const { skip(fun_, it); }
 
-        // skip iterator class
+    public:
+        // skip iterator class, it refers to its skip_it_pair, which must outlive it
         class iterator
         {
-            union
-            {
-                bool invalid;
-                std::reference_wrapper<const skip_it_pair> ip_;
-            };
-            I it_;
+            const skip_it_pair* ip_ = nullptr;
+            I it_{};
         public:
-            typedef std::forward_iterator_tag   iterator_category;
+            using iterator_category = std::forward_iterator_tag;
             using difference_type = typename std::iterator_traits<I>::difference_type;
             using value_type = typename std::iterator_traits<I>::value_type;
             using pointer = typename std::iterator_traits<I>::pointer;
             using reference = typename std::iterator_traits<I>::reference;
 
-            iterator() : invalid(true) {}
-            iterator(const skip_it_pair& ip, I it) : ip_(ip), it_(it) {}
-            iterator& operator++ () { ip_.get().inc(it_); return *this; }
-            iterator operator++ (int) { auto tmp = *this; ip_().get().inc(it_); return tmp; }
+            iterator() = default;
+            iterator(const skip_it_pair& ip, I it) : ip_(&ip), it_(it) {}
+            iterator& operator++ () { ip_->inc(it_); return *this; }
+            iterator operator++ (int) { auto tmp = *this; ip_->inc(it_); return tmp; }
             iterator operator+ (size_t dist) const
             {
                 auto tmp = *this;
-                tmp.ip_.advance(tmp.it_, dist);
+                ip_->advance(tmp.it_, dist);
                 return tmp;
             }
             operator I () const { return it_; }
 
             reference operator* () const { return *it_; }
-            pointer operator->() const { return it_.operator->(); }
+            pointer operator->() const { return detail::arrow(it_); }
             bool operator== (const iterator& other) const { return it_ == other.it_; }
             bool operator!= (const iterator& other) const { return !operator==(other); }
-            iterator& operator= (const iterator& i) { ip_ = i.ip_;  it_ = i.it_; return *this; }
 
             I get() const { return it_; }
         };
-    public:
+
         skip_it_pair() = default;
         template<class Fun>
         skip_it_pair(I begin, I end, Fun&& fun) : begin_(begin), end_(end), fun_(std::forward<Fun>(fun))
@@ -260,10 +270,29 @@ namespace axe
         iterator end() const { return iterator(*this, end_); }
     };
 
+    //-------------------------------------------------------------------------
+    // make_skip_it_pair creates a range of [begin, end) skipping elements, like r_skip, which satisfy
+    // a predicate or match a rule, or are a character or any of the characters of a string
+    //-------------------------------------------------------------------------
     template<class I, class F>
-    inline skip_it_pair<I, std::decay_t<F>> make_skip_it_pair(I begin, I end, F&& f)
+    inline std::enable_if_t<AXE_IS_PREDICATE(F) || AXE_IS_RULE(F), skip_it_pair<I, std::decay_t<F>>>
+        make_skip_it_pair(I begin, I end, F&& f)
     {
         return skip_it_pair<I, std::decay_t<F>>(begin, end, std::forward<F>(f));
+    }
+
+    template<class I, class charT>
+    inline std::enable_if_t<std::is_integral_v<charT>, skip_it_pair<I, is_char_t<charT>>>
+        make_skip_it_pair(I begin, I end, charT c)
+    {
+        return skip_it_pair<I, is_char_t<charT>>(begin, end, is_char_t<charT>(c));
+    }
+
+    template<class I, class charT>
+    inline std::enable_if_t<std::is_integral_v<charT>, skip_it_pair<I, is_any_t<const charT*>>>
+        make_skip_it_pair(I begin, I end, const charT* str)
+    {
+        return skip_it_pair<I, is_any_t<const charT*>>(begin, end, is_any_t<const charT*>(str));
     }
 
     //-------------------------------------------------------------------------
@@ -310,13 +339,13 @@ namespace axe
     };
 
     //-------------------------------------------------------------------------
-    template<class I, template<class, class> class C = std::vector, class A = std::allocator<typename I::value_type>>
+    template<class I, template<class, class> class C = std::vector, class A = std::allocator<typename std::iterator_traits<I>::value_type>>
     class input_buffer
     {
         friend class iterator;
         I it_; // always points to position that hasn't been read
         I end_;
-        C<typename I::value_type, A> buffer_;
+        C<typename std::iterator_traits<I>::value_type, A> buffer_;
 
         bool read_from_input()
         {
@@ -352,7 +381,7 @@ namespace axe
                 position = -1;
         }
 
-        typename I::reference get_ref(size_t position)
+        typename std::iterator_traits<I>::reference get_ref(size_t position)
         {
             if(position >= buffer_.size() && (!sync(position) || !read_from_input()))
                 throw_failure("input_buffer: dereferencing end iterator");

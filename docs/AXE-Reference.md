@@ -42,6 +42,9 @@ in your source files and set the include directory in your compiler environment 
 | Floating-point numbers | `r_double(t)`, `r_fixed(t)` and `r_ufixed(t)` assign the exact value. They built it from 32-bit integer parts, so a number with more than about 9 fractional digits or an integer part above 4294967295 was assigned a wrong value. A number too large or too small for the type of `t` fails the rule. |
 | Integer overflow | `r_decimal(t)`, `r_udecimal(t)`, `r_hex(t)`, `r_oct(t)` and `r_binary(t)` fail when the number doesn't fit the type of `t`, instead of wrapping around. The minimum of a signed type is read, and a negative number fails for an unsigned type unless it is zero. |
 | Extraction to numbers | `A >> t`, `e_push_back` and `get_as` convert to integer and floating-point types exactly. Text that isn't a number, or a number that doesn't fit the type, throws `axe::failure<charT>`; before, numbers were truncated or `std::invalid_argument` and `std::out_of_range` escaped from `parse`. |
+| `r_find` | Tries the end of input too, so `r_find(r_end())` matches, and `parse` and `parse_tree` agree on empty input. |
+| `make_skip_it_pair` | Works: its iterators didn't compile when incremented with `i++` or `+`. It accepts the same skippers as `r_skip`, and its iterator type is public. |
+| `r_buffered` | Accepts pointers and other forward iterators, not only iterator classes. |
 
 # Changes in v.2.2
 
@@ -165,7 +168,7 @@ or providing more flexibility to the above operators.
 | `r_many(A, min_occurrence = 1, max_occurrence = -1)` | Matches rule A from min_occurrence to max_occurrence times |
 | `r_select(A, B, C)` | Matches rule A, and if matched matches B, otherwise matches C (equivalent to `!A & C \| A & B`, but A is evaluated only once) |
 | `r_ref(A)` | Deprecated.<br>Creates a reference rule wrapper for rule A. An `std::ref()` function can be used instead. |
-| `r_find(A)` | Skip input until rule `A` matched. When matched it returns iterator range starting from the initial position to the end of matched rule.<br>If you want to find the first match of rule `A` but leave the iterator at the beginning of that match, then you can use `r_find(!!A);` |
+| `r_find(A)` | Skip input until rule `A` matched. When matched it returns iterator range starting from the initial position to the end of matched rule. Each position is tried, up to and including the end of input, so `r_find(r_end())` matches at the end.<br>If you want to find the first match of rule `A` but leave the iterator at the beginning of that match, then you can use `r_find(!!A);` |
 | `r_fail(F)` | Creates a rule to invoke function F on failure of the preceding rule (`A \| r_fail(F)`). Allowed signatures: `void()`, `void(Iterator)`, `void(Iterator, Iterator)`, and `void(Iterator,Iterator,Iterator)`. With one argument the function receives the failed position; with two, the failed position and the end of input; with three, the position where the failed rule started, the failed position and the end of input.<br>E.g. see [example 1](#example-1-r_failf) below the table. |
 | `r_fail(str = "r_fail")` | When the preceding rule fails `axe::failure<charT>` exception is thrown; its `what()` returns `str`, and its `message()` adds up to 39 characters of the input at the failed position (see [AXE exceptions](#axe-exceptions)). The `charT` type depends on iterator type the rule was executed:<br>`using charT = typename iterator_traits<Iterator>::value_type;` |
 | `r_bool(b)` | Creates rule that evaluates boolean expression which becomes the result of match. The rule doesn't advance the iterators.<br>`b` is a value convertible to bool, or a function returning a value convertible to bool and taking no arguments, the current position, or the current position and the end of input. A function taking iterators isn't called at the end of input, where the rule doesn't match. Since the argument is held by value, a variable needs a reference wrapper (`std::ref`) to be evaluated at parse time.<br>For example, the following rule matches only numbers from 1 to 999 (see [example 2](#example-2-r_boolb) below the table). |
@@ -285,7 +288,7 @@ iterator transformation rules are defined in AXE:
 | `r_lcase(string, locale = std::locale())` | Same as above, but uses lower case transformation; the string must be written in lower case. |
 | `r_icase(string, locale = std::locale())` | Case insensitive match. It transforms both string and iterators to lower case. This rule is slower than `r_ucase` or `r_lcase`, because both input characters and string are converted. |
 | `r_convert(R, F)` | Creates a rule that passes R an iterator whose elements are the input elements converted by function F. The result of F must be convertible to the iterator's `value_type`. The extractors in R receive the converted elements. |
-| `r_buffered(R)` | Creates a buffer for input iterator, e.g. `istreambuf_iterator`. Inside the buffer R can backtrack like any rule. Input iterators cannot be rolled back, so if a buffered rule is not matched an `axe::failure<charT>` exception is thrown with the message `"buffered rule failed"`.<br>For the same reason R must end at the end of input or where it stopped reading. A rule that reads past its match, as `_int` reads the character after the number to see that it isn't a digit, throws `axe::failure<charT>` with the message `"input_buffer: rollback not possible"` unless the match is at the end of input; `_int & ' '` consumes that character. The returned position is in the input, so the next parse continues there.<br>To minimize the amount of copying and the size of the buffer, only wrap the minimum necessary number of atomic rules in `r_buffered`. |
+| `r_buffered(R)` | Creates a buffer for input iterator, e.g. `istreambuf_iterator`; other iterators, including pointers, are accepted too. Inside the buffer R can backtrack like any rule. Input iterators cannot be rolled back, so if a buffered rule is not matched an `axe::failure<charT>` exception is thrown with the message `"buffered rule failed"`.<br>For the same reason R must end at the end of input or where it stopped reading. A rule that reads past its match, as `_int` reads the character after the number to see that it isn't a digit, throws `axe::failure<charT>` with the message `"input_buffer: rollback not possible"` unless the match is at the end of input; `_int & ' '` consumes that character. The returned position is in the input, so the next parse continues there.<br>To minimize the amount of copying and the size of the buffer, only wrap the minimum necessary number of atomic rules in `r_buffered`. |
 
 ### `r_rule` inside rules that change the iterator type
 
@@ -438,7 +441,7 @@ When `axe::parse_tree` function is used for a composite rule, it returns in
 
 ## AXE Utility functions
 
-The following functions are defined in the axe namespace in `axe_utility.h` (`parse_expression` in `axe_expression.h`):
+The following functions are defined in the axe namespace in `axe_utility.h` (`parse_expression` in `axe_expression.h`, `make_skip_it_pair` in `axe_iterator.h`):
 
 | Syntax | Explanation |
 |---|---|
@@ -451,6 +454,7 @@ The following functions are defined in the axe namespace in `axe_utility.h` (`pa
 | `template<class R>`<br>`inline auto get_name(const R& r)` | Returns name if it's a named rule. Otherwise returns `type_info::name`. Named rules is a debugging convenience. |
 | `template<class T, class C, class Traits, class Alloc>`<br>`inline auto parse_expression(const std::basic_string<C, Traits, Alloc>& str, T def_value)` | Function parses the expression in string `str` using `axe::r_expression` parser. Returns parsed value of type `T` if successful. Otherwise returns `def_value`. See `r_expression` [above](#axe-functions-and-class-constructors). |
 | `auto write_xml(const parse-tree-data-type& v, std::ostream& os, size_t level = 0)` | Function writes `result<Data, I>::data` field passed as argument to the stream in xml format. Parameter `level` is used to create indentation: each nesting level is indented by one space.<br>The elements are `<tuple size="n">`, `<variant index="i">`, `<vector size="n">` (`<vector size="0"/>` when empty) and `<optional matched="true">` (`<optional matched="false"/>` when empty), and the parsed text is written as `<![CDATA[parsed-text]]>`.<br>For example, see the [`write_xml` example](#example-write_xml) below the table. |
+| `make_skip_it_pair(begin, end, F)` | Returns a range of `[begin, end)` whose iterators skip the elements that satisfy predicate F, match rule F, or are character F or any of the characters of string F, like the iterators of `r_skip`. For example, `for (auto c : axe::make_skip_it_pair(s.begin(), s.end(), axe::is_wspace()))` visits the characters of `s` that aren't white space, and `parse(rule, range.begin(), range.end())` parses them. The iterators refer to the range, which must outlive them, and convert to the underlying iterator. |
 
 ### Example: `write_xml`
 
