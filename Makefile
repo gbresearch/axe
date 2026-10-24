@@ -16,6 +16,7 @@
 #   make -j8 WERROR=1             warnings are errors
 #   make test                     build and run the tests; TEST_ARGS="--suite axe" passes arguments
 #   make check-headers            each header under include/ compiles on its own
+#   make docs                     the Library Reference PDF from docs/AXE-Reference.md (pandoc, Chrome)
 #   make clean                    remove the outputs of this compiler and configuration
 #   make clean-all                remove the outputs of every compiler and configuration on this OS
 #   make help                     this text
@@ -37,6 +38,7 @@
 #   build/<PLATFORM>/<Config>/axe_test        the tests run here and write axe-test.log
 #   build/<PLATFORM>/<Config>/obj/...
 #   build/<PLATFORM>/header_check/...
+#   build/docs/AXE-Reference.pdf              make docs, see docs/README.md
 #-----------------------------------------------------------------------------
 
 .DEFAULT_GOAL := all
@@ -59,7 +61,7 @@ COMPILER_MAJOR := $(firstword $(subst ., ,$(shell $(CXX) -dumpversion 2>/dev/nul
 MIN_MAJOR      := $(if $(filter clang,$(COMPILER_ID)),20,14)
 
 # an older compiler fails with errors deep in the Yadro headers, so say what is needed instead
-ifneq ($(filter-out help clean clean-all check-headers,$(or $(MAKECMDGOALS),all)),)
+ifneq ($(filter-out help clean clean-all check-headers docs,$(or $(MAKECMDGOALS),all)),)
   ifeq ($(shell [ "$(COMPILER_MAJOR)" -ge $(MIN_MAJOR) ] 2>/dev/null && echo ok),)
     $(error $(CXX) is $(COMPILER_ID) $(or $(COMPILER_MAJOR),of unknown version); the tests (Yadro gbtest) need GCC 14 or Clang 20 or later, e.g. make CXX=g++-14)
   endif
@@ -84,7 +86,7 @@ PLATFORM ?= $(OS_NAME)-$(notdir $(firstword $(CXX)))
 YADRO_DIR ?= ../yadro
 YADRO_HEADER := $(YADRO_DIR)/util/gbtest.h
 
-ifneq ($(filter-out help clean clean-all check-headers,$(or $(MAKECMDGOALS),all)),)
+ifneq ($(filter-out help clean clean-all check-headers docs,$(or $(MAKECMDGOALS),all)),)
   ifeq ($(wildcard $(YADRO_HEADER)),)
     $(error $(YADRO_HEADER) not found: clone https://github.com/gbresearch/yadro next to this repository, or pass YADRO_DIR=<path to yadro>)
   endif
@@ -150,7 +152,7 @@ TEST_OBJECTS := $(TEST_SOURCES:%.cpp=$(TEST_OBJ_DIR)/%.o)
 #-----------------------------------------------------------------------------
 # build
 
-.PHONY: all test check-headers clean clean-all help
+.PHONY: all test check-headers docs clean clean-all help
 
 all: $(TEST_EXE)
 
@@ -184,12 +186,39 @@ $(CHECK_DIR)/%.h.ok: include/%.h
 	@touch $@
 
 #-----------------------------------------------------------------------------
+# docs: the Library Reference PDF. pandoc converts the GitHub-flavored Markdown source to HTML and a
+# Chromium-based browser (Chrome, Chromium or Edge 131 or later) prints the HTML to PDF. CHROME names the
+# browser; CHROME_FLAGS adds options, e.g. CHROME_FLAGS=--no-sandbox when running as root in a container.
+
+PANDOC       ?= pandoc
+CHROME       ?= $(firstword $(foreach b,google-chrome google-chrome-stable chromium chromium-browser microsoft-edge,$(shell command -v $(b) 2>/dev/null)))
+CHROME_FLAGS ?=
+
+DOCS_DIR     := build/docs
+DOCS_SOURCE  := docs/AXE-Reference.md
+DOCS_HTML    := $(DOCS_DIR)/AXE-Reference.html
+DOCS_PDF     := $(DOCS_DIR)/AXE-Reference.pdf
+
+docs: $(DOCS_PDF)
+
+$(DOCS_HTML): $(DOCS_SOURCE) docs/reference-template.html docs/reference.css
+	@mkdir -p $(@D)
+	$(PANDOC) $(DOCS_SOURCE) -f gfm -t html5 --standalone --embed-resources \
+	    --template=docs/reference-template.html --css=docs/reference.css \
+	    --toc --toc-depth=2 --reference-location=section --highlight-style=tango -o $@
+
+$(DOCS_PDF): $(DOCS_HTML)
+	$(if $(CHROME),,$(error no Chrome, Chromium or Edge found: pass CHROME=<path to the browser>))
+	"$(CHROME)" --headless --disable-gpu --no-pdf-header-footer --generate-pdf-document-outline \
+	    $(CHROME_FLAGS) --print-to-pdf="$(abspath $@)" "file://$(abspath $<)"
+
+#-----------------------------------------------------------------------------
 
 clean:
 	rm -rf $(EXE_DIR) $(CHECK_DIR)
 
 clean-all:
-	rm -rf build/$(OS_NAME)-*
+	rm -rf build/$(OS_NAME)-* $(DOCS_DIR)
 
 help:
 	@sed -n '/^# GNU Makefile/,/^#----/p' $(firstword $(MAKEFILE_LIST)) | sed -e '$$d' -e 's/^# \{0,1\}//'

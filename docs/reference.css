@@ -1,0 +1,246 @@
+/*
+  Print stylesheet for the AXE Library Reference (see docs/README.md).
+  The PDF is printed by a Chromium-based browser (Chrome, Chromium or Edge), which supports the @page
+  margin boxes used for the page footer since version 131.
+*/
+
+@page {
+    size: letter;
+    margin: 0.9in 0.9in 0.85in 0.9in;
+    @bottom-right {
+        content: counter(page);
+        font: 9pt Arial, "Liberation Sans", Helvetica, sans-serif;
+        color: #555;
+    }
+}
+
+/* the copyright line (@bottom-center) is set by reference-template.html from the front matter */
+@page {
+    @bottom-center {
+        font: 9pt Arial, "Liberation Sans", Helvetica, sans-serif;
+        color: #555;
+    }
+}
+
+@page :first {
+    @bottom-right { content: none; }
+}
+
+html {
+    font: 11pt/1.35 "Times New Roman", "Liberation Serif", Times, serif;
+    color: #000;
+    background: #fff;
+}
+
+body {
+    margin: 0;
+}
+
+/* cover page and table of contents */
+
+header.cover {
+    text-align: center;
+    padding-top: 2.2in;
+}
+
+header.cover .title {
+    font: bold 60pt Arial, "Liberation Sans", Helvetica, sans-serif;
+    margin: 0;
+    break-before: auto;
+}
+
+header.cover .subtitle {
+    font: 20pt Arial, "Liberation Sans", Helvetica, sans-serif;
+    margin: 0.2in 0 0;
+}
+
+nav#TOC {
+    break-before: page;
+}
+
+nav#TOC::before {
+    content: "Contents";
+    display: block;
+    font: bold italic 16pt Arial, "Liberation Sans", Helvetica, sans-serif;
+    margin-bottom: 0.15in;
+}
+
+nav#TOC ul {
+    list-style: none;
+    margin: 0;
+    padding-left: 0;
+}
+
+nav#TOC ul ul {
+    padding-left: 1.5em;
+}
+
+nav#TOC li {
+    margin: 0.2em 0;
+}
+
+nav#TOC > ul > li > a {
+    font-weight: bold;
+}
+
+nav#TOC a {
+    color: inherit;
+    text-decoration: none;
+}
+
+/* headings */
+
+h1, h2, h3, h4 {
+    font-family: Arial, "Liberation Sans", Helvetica, sans-serif;
+    font-style: italic;
+    font-weight: bold;
+    break-after: avoid;
+    break-inside: avoid;
+}
+
+main h1 {
+    font-size: 16pt;
+    margin: 0 0 0.6em;
+    break-before: page;
+}
+
+h2 {
+    font-size: 13.5pt;
+    margin: 1.4em 0 0.5em;
+}
+
+h3 {
+    font-size: 11.5pt;
+    margin: 1.2em 0 0.4em;
+}
+
+p, li {
+    orphans: 3;
+    widows: 3;
+}
+
+a {
+    color: #1a4f8b;
+    text-decoration: none;
+}
+
+/* code */
+
+code, pre {
+    font-family: "Courier New", "Liberation Mono", "DejaVu Sans Mono", monospace;
+}
+
+code {
+    font-size: 0.9em;
+}
+
+pre {
+    font-size: 8.8pt;
+    line-height: 1.3;
+    background: #f6f6f6;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    padding: 0.6em 0.8em;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+pre code {
+    font-size: inherit;
+}
+
+/* pandoc's highlighting style indents every printed code line by 5em; keep the lines as written */
+pre > code.sourceCode > span {
+    text-indent: 0;
+    padding-left: 0;
+}
+
+div.sourceCode {
+    margin: 0.8em 0;
+}
+
+div.sourceCode pre {
+    margin: 0;
+}
+
+/* tables */
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0.8em 0 1em;
+    font-size: 10.5pt;
+}
+
+thead {
+    display: table-header-group;
+}
+
+tr {
+    break-inside: avoid;
+}
+
+th, td {
+    border: 1px solid #999;
+    padding: 0.3em 0.5em;
+    vertical-align: top;
+    text-align: left;
+}
+
+th {
+    font-family: Arial, "Liberation Sans", Helvetica, sans-serif;
+    background: #e8e8e8;
+}
+
+td:first-child {
+    width: 34%;
+    overflow-wrap: anywhere;
+}
+
+/* footnotes, printed at the end of each top level section (pandoc --reference-location=section) */
+
+aside.footnotes {
+    font-size: 9pt;
+    margin-top: 1.5em;
+    break-inside: avoid;
+}
+
+aside.footnotes hr {
+    width: 30%;
+    margin: 0 0 0.5em;
+    border: 0;
+    border-top: 1px solid #999;
+}
+
+aside.footnotes ol {
+    padding-left: 1.5em;
+}
+
+aside.footnotes li p {
+    margin: 0.2em 0;
+}
+
+a.footnote-back {
+    display: none;
+}
+
+a.footnote-ref {
+    font-size: 0.75em;
+    vertical-align: super;
+    line-height: 0;
+}
+
+a.footnote-ref sup {
+    vertical-align: baseline;
+}
+
+@media screen {
+    body {
+        max-width: 7in;
+        margin: 2em auto;
+        padding: 0 1em;
+    }
+    header.cover {
+        padding-top: 0.5in;
+    }
+}
