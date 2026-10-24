@@ -235,214 +235,124 @@ namespace axe
 
 
     //-------------------------------------------------------------------------
-    // extractors for decimal values
+    // extractors for numbers
     //-------------------------------------------------------------------------
-    /// extractor for int
+    namespace detail
+    {
+        //-------------------------------------------------------------------------
+        /// number_extractor converts the matched text to an integer or floating-point T exactly;
+        /// text that isn't a number, or a number that doesn't fit T, throws failure;
+        /// an empty range leaves the value unchanged
+        //-------------------------------------------------------------------------
+        template<class T>
+        class number_extractor
+        {
+            T& value_;
+        public:
+            explicit number_extractor(T& value) : value_(value) {}
+
+            template<class Iterator, class Iterator2>
+            void operator() (Iterator i1, Iterator2 i2) const
+            {
+                using char_t = typename std::iterator_traits<Iterator>::value_type;
+                if (i1 == i2)
+                    return;
+                std::string text;
+                auto status = number_text(i1, i2, text) ? to_number(text, value_) : number_status::invalid;
+                if (status == number_status::invalid)
+                    throw failure<char_t>("extraction to a number failed: the text isn't a number", i1, i2);
+                if (status == number_status::out_of_range)
+                    throw failure<char_t>("extraction to a number failed: the number is out of range", i1, i2);
+            }
+        };
+    }
+
     //-------------------------------------------------------------------------
     template<>
-    class e_value_t<short>
+    class e_value_t<short> : public detail::number_extractor<short>
     {
-        short& c;
     public:
-        explicit e_value_t(short& c) : c(c) {}
-
-        template<class Iterator, class Iterator2>
-        void operator() (Iterator i1, Iterator2 i2) const
-        {
-            using char_t = typename std::iterator_traits<Iterator>::value_type;
-            if(i1 != i2)
-                c = std::stoi(std::basic_string<char_t>(i1, i2));
-        }
+        using detail::number_extractor<short>::number_extractor;
     };
 
     //-------------------------------------------------------------------------
-    /// extractor for unsigned int
-    //-------------------------------------------------------------------------
     template<>
-    class e_value_t<unsigned short>
+    class e_value_t<unsigned short> : public detail::number_extractor<unsigned short>
     {
-        unsigned short& c;
     public:
-        explicit e_value_t(unsigned short& c) : c(c) {}
-
-        template<class Iterator, class Iterator2>
-        void operator() (Iterator i1, Iterator2 i2) const
-        {
-            using char_t = typename std::iterator_traits<Iterator>::value_type;
-            if(i1 != i2)
-                c = std::stoul(std::basic_string<char_t>(i1, i2));
-        }
+        using detail::number_extractor<unsigned short>::number_extractor;
     };
 
     //-------------------------------------------------------------------------
-    /// extractor for int
-    //-------------------------------------------------------------------------
     template<>
-    class e_value_t<int>
+    class e_value_t<int> : public detail::number_extractor<int>
     {
-        int& c;
     public:
-        explicit e_value_t(int& c) : c(c) {}
-
-        template<class Iterator, class Iterator2>
-        void operator() (Iterator i1, Iterator2 i2) const
-        {
-            using char_t = typename std::iterator_traits<Iterator>::value_type;
-            if(i1 != i2)
-                c = std::stoi(std::basic_string<char_t>(i1, i2));
-        }
+        using detail::number_extractor<int>::number_extractor;
     };
 
     //-------------------------------------------------------------------------
-    /// extractor for unsigned int
-    //-------------------------------------------------------------------------
     template<>
-    class e_value_t<unsigned int>
+    class e_value_t<unsigned int> : public detail::number_extractor<unsigned int>
     {
-        unsigned int& c;
     public:
-        explicit e_value_t(unsigned int& c) : c(c) {}
-
-        template<class Iterator, class Iterator2>
-        void operator() (Iterator i1, Iterator2 i2) const
-        {
-            using char_t = typename std::iterator_traits<Iterator>::value_type;
-            if(i1 != i2)
-                c = std::stoul(std::basic_string<char_t>(i1, i2));
-        }
+        using detail::number_extractor<unsigned int>::number_extractor;
     };
 
     //-------------------------------------------------------------------------
-    /// extractor for long
-    //-------------------------------------------------------------------------
     template<>
-    class e_value_t<long>
+    class e_value_t<long> : public detail::number_extractor<long>
     {
-        long& c;
     public:
-        explicit e_value_t(long& c) : c(c) {}
-
-        template<class Iterator, class Iterator2>
-        void operator() (Iterator i1, Iterator2 i2) const
-        {
-            using char_t = typename std::iterator_traits<Iterator>::value_type;
-            if (i1 != i2)
-                c = std::stol(std::basic_string<char_t>(i1, i2));
-        }
+        using detail::number_extractor<long>::number_extractor;
     };
 
     //-------------------------------------------------------------------------
-    /// extractor for unsigned long
-    //-------------------------------------------------------------------------
     template<>
-    class e_value_t<unsigned long>
+    class e_value_t<unsigned long> : public detail::number_extractor<unsigned long>
     {
-        unsigned long& c;
     public:
-        explicit e_value_t(unsigned long& c) : c(c) {}
-
-        template<class Iterator, class Iterator2>
-        void operator() (Iterator i1, Iterator2 i2) const
-        {
-            using char_t = typename std::iterator_traits<Iterator>::value_type;
-            if (i1 != i2)
-                c = std::stoul(std::basic_string<char_t>(i1, i2));
-        }
+        using detail::number_extractor<unsigned long>::number_extractor;
     };
 
     //-------------------------------------------------------------------------
-    /// extractor for long long
-    //-------------------------------------------------------------------------
     template<>
-    class e_value_t<long long>
+    class e_value_t<long long> : public detail::number_extractor<long long>
     {
-        long long& c;
     public:
-        explicit e_value_t(long long& c) : c(c) {}
-
-        template<class Iterator, class Iterator2>
-        void operator() (Iterator i1, Iterator2 i2) const
-        {
-            using char_t = typename std::iterator_traits<Iterator>::value_type;
-            if (i1 != i2)
-                c = std::stoll(std::basic_string<char_t>(i1, i2));
-        }
+        using detail::number_extractor<long long>::number_extractor;
     };
 
     //-------------------------------------------------------------------------
-    /// extractor for long long
-    //-------------------------------------------------------------------------
     template<>
-    class e_value_t<unsigned long long>
+    class e_value_t<unsigned long long> : public detail::number_extractor<unsigned long long>
     {
-        unsigned long long& c;
     public:
-        explicit e_value_t(unsigned long long& c) : c(c) {}
-
-        template<class Iterator, class Iterator2>
-        void operator() (Iterator i1, Iterator2 i2) const
-        {
-            using char_t = typename std::iterator_traits<Iterator>::value_type;
-            if (i1 != i2)
-                c = std::stoull(std::basic_string<char_t>(i1, i2));
-        }
+        using detail::number_extractor<unsigned long long>::number_extractor;
     };
 
     //-------------------------------------------------------------------------
-    /// extractor for float
-    //-------------------------------------------------------------------------
     template<>
-    class e_value_t<float>
+    class e_value_t<float> : public detail::number_extractor<float>
     {
-        float& c;
     public:
-        explicit e_value_t(float& c) : c(c) {}
-
-        template<class Iterator, class Iterator2>
-        void operator() (Iterator i1, Iterator2 i2) const
-        {
-            using char_t = typename std::iterator_traits<Iterator>::value_type;
-            if (i1 != i2)
-                c = std::stof(std::basic_string<char_t>(i1, i2));
-        }
+        using detail::number_extractor<float>::number_extractor;
     };
 
     //-------------------------------------------------------------------------
-    /// extractor for double
-    //-------------------------------------------------------------------------
     template<>
-    class e_value_t<double>
+    class e_value_t<double> : public detail::number_extractor<double>
     {
-        double& c;
     public:
-        explicit e_value_t(double& c) : c(c) {}
-
-        template<class Iterator, class Iterator2>
-        void operator() (Iterator i1, Iterator2 i2) const
-        {
-            using char_t = typename std::iterator_traits<Iterator>::value_type;
-            if (i1 != i2)
-                c = std::stod(std::basic_string<char_t>(i1, i2));
-        }
+        using detail::number_extractor<double>::number_extractor;
     };
 
     //-------------------------------------------------------------------------
-    /// extractor for long double
-    //-------------------------------------------------------------------------
     template<>
-    class e_value_t<long double>
+    class e_value_t<long double> : public detail::number_extractor<long double>
     {
-        long double& c;
     public:
-        explicit e_value_t(long double& c) : c(c) {}
-
-        template<class Iterator, class Iterator2>
-        void operator() (Iterator i1, Iterator2 i2) const
-        {
-            using char_t = typename std::iterator_traits<Iterator>::value_type;
-            if (i1 != i2)
-                c = std::stold(std::basic_string<char_t>(i1, i2));
-        }
+        using detail::number_extractor<long double>::number_extractor;
     };
 
     //-------------------------------------------------------------------------

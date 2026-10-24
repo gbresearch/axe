@@ -133,6 +133,7 @@ TEST_SOURCES := \
     test/ini_test.cpp \
     test/jason_test.cpp \
     test/literal_test.cpp \
+    test/number_test.cpp \
     test/reference.cpp \
     test/replacement_test.cpp \
     test/roman_numerals.cpp \
