@@ -128,7 +128,8 @@ class HarnessRegressions(unittest.TestCase):
             target = Path(directory) / "compiler with spaces.exe"
             target.write_bytes(b"placeholder")
             target.chmod(0o755)
-            self.assertEqual(self.docs.find_compiler(str(target)), str(target.resolve()))
+            # Keep invocation spelling, including Windows temporary 8.3 paths.
+            self.assertEqual(self.docs.find_compiler(str(target)), str(target.absolute()))
 
     def test_compiler_symlink_invocation_alias_is_preserved(self):
         with tempfile.TemporaryDirectory(prefix="docs compiler alias ") as directory:
