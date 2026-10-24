@@ -30,6 +30,7 @@
 #include <locale>
 #include <algorithm>
 #include <charconv>
+#include <cmath>
 #include <limits>
 #include <sstream>
 #include <string>
@@ -127,11 +128,19 @@ namespace axe
             is.imbue(std::locale::classic());
             T v{};
             is >> v;
-            if (is.fail())  // a number too large is read as the largest value and fails
-                return v == std::numeric_limits<T>::max() || v == std::numeric_limits<T>::lowest()
+            if (is.fail())  // implementations store either the largest finite value or infinity on overflow
+                return v == std::numeric_limits<T>::max() || v == std::numeric_limits<T>::lowest() || std::isinf(v)
                     ? number_status::out_of_range : number_status::invalid;
             if (is.peek() != std::char_traits<char>::eof())
                 return number_status::invalid;
+            if (v == 0)
+            {
+                // Some streams silently round underflow to zero. Exponent digits don't make zero nonzero.
+                const auto exponent = number.find_first_of("eE");
+                const auto nonzero = number.find_first_of("123456789");
+                if (nonzero != std::string::npos && (exponent == std::string::npos || nonzero < exponent))
+                    return number_status::out_of_range;
+            }
             value = v;
             return number_status::ok;
         }

@@ -79,6 +79,78 @@ namespace axe
         }
 
         //-------------------------------------------------------------------------
+        /// converts a matched decimal significand and exponent without rounding through floating point;
+        /// fractions are truncated towards zero, but a value outside T's range is rejected
+        //-------------------------------------------------------------------------
+        template<class T>
+        bool assign_integral(T& value, const std::string& text)
+        {
+            const bool negative = text.front() == '-';
+            const size_t first = negative || text.front() == '+' ? 1 : 0;
+            const auto exponent_pos = text.find_first_of("eE", first);
+            auto digits = text.substr(first, exponent_pos == std::string::npos ? std::string::npos : exponent_pos - first);
+            const auto point = digits.find('.');
+            const auto integer_digits = point == std::string::npos ? digits.size() : point;
+            if (point != std::string::npos)
+                digits.erase(point, 1);
+
+            if (digits.find_first_not_of('0') == std::string::npos)
+            {
+                value = T(0);
+                return true;
+            }
+            if (negative && !std::numeric_limits<T>::is_signed)
+                return false;
+
+            size_t exponent = 0;
+            bool negative_exponent = false;
+            if (exponent_pos != std::string::npos)
+            {
+                auto begin = text.data() + exponent_pos + 1;
+                const auto end = text.data() + text.size();
+                if (*begin == '-' || *begin == '+')
+                {
+                    negative_exponent = *begin == '-';
+                    ++begin;
+                }
+                // A huge exponent only needs its direction; don't overflow the exponent itself.
+                if (std::from_chars(begin, end, exponent).ec == std::errc::result_out_of_range)
+                    exponent = std::numeric_limits<size_t>::max();
+            }
+
+            size_t take = integer_digits;
+            size_t zeroes = 0;
+            if (negative_exponent)
+                take = exponent >= integer_digits ? 0 : integer_digits - exponent;
+            else
+            {
+                const auto fractional_digits = digits.size() - integer_digits;
+                if (exponent <= fractional_digits)
+                    take += exponent;
+                else
+                {
+                    take = digits.size();
+                    zeroes = exponent - fractional_digits;
+                }
+            }
+
+            T number = 0;
+            for (size_t i = 0; i < take; ++i)
+                if (!append_digit(number, 10, unsigned(digits[i] - '0'), negative))
+                    return false;
+            for (; zeroes != 0; --zeroes)
+                if (!append_digit(number, 10, 0, negative))
+                    return false;
+
+            // A fraction beyond the exact limit is out of range even if truncation would fit.
+            const auto limit = negative ? std::numeric_limits<T>::lowest() : std::numeric_limits<T>::max();
+            if (number == limit && digits.find_first_not_of('0', take) != std::string::npos)
+                return false;
+            value = number;
+            return true;
+        }
+
+        //-------------------------------------------------------------------------
         /// assign_floating converts the text of a matched number to T exactly, and assigns it;
         /// returns false, without changing value, if the number doesn't fit T
         //-------------------------------------------------------------------------
@@ -94,6 +166,10 @@ namespace axe
             if constexpr (std::is_floating_point_v<T>)
             {
                 return to_number(text, value) == number_status::ok;
+            }
+            else if constexpr (std::is_integral_v<T> && !std::is_same_v<T, bool>)
+            {
+                return assign_integral(value, text);
             }
             else
             {

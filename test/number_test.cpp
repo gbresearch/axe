@@ -30,6 +30,7 @@
 // fails the rule, or throws failure on extraction, instead of being truncated or wrapped around.
 
 #include <climits>
+#include <cstdint>
 #include <limits>
 #include <string>
 #include <vector>
@@ -98,6 +99,52 @@ namespace
         int whole = 0;
         gbassert(matches(axe::r_ufixed(whole), std::string("3.7")) && whole == 3);
         gbassert(!matches(axe::r_double(whole), std::string("1e10")) && whole == 3);
+    }
+
+    GB_TEST(axe, test_floating_integer_limits)
+    {
+        auto unsigned_limits = [](auto make_rule)
+        {
+            std::uint64_t value = 7;
+            gbassert(matches(make_rule(value), std::string("18446744073709551615")) && value == UINT64_MAX);
+            gbassert(matches(make_rule(value), std::string("18446744073709551614.9")) && value == UINT64_MAX - 1);
+            for (const std::string text : { "18446744073709551616", "18446744073709551615.1" })
+            {
+                value = 7;
+                gbassert(!matches(make_rule(value), text) && value == 7);
+            }
+        };
+        unsigned_limits([](auto& value) { return axe::r_double(value); });
+        unsigned_limits([](auto& value) { return axe::r_fixed(value); });
+        unsigned_limits([](auto& value) { return axe::r_ufixed(value); });
+
+        auto signed_limits = [](auto make_rule)
+        {
+            std::int64_t value = 7;
+            gbassert(matches(make_rule(value), std::string("9223372036854775807")) && value == INT64_MAX);
+            gbassert(matches(make_rule(value), std::string("-9223372036854775808")) && value == INT64_MIN);
+            gbassert(matches(make_rule(value), std::string("-9223372036854775807.9")) && value == INT64_MIN + 1);
+            for (const std::string text : { "9223372036854775808", "-9223372036854775809",
+                "9223372036854775807.1", "-9223372036854775808.1" })
+            {
+                value = 7;
+                gbassert(!matches(make_rule(value), text) && value == 7);
+            }
+        };
+        signed_limits([](auto& value) { return axe::r_double(value); });
+        signed_limits([](auto& value) { return axe::r_fixed(value); });
+
+        std::uint64_t value = 7;
+        gbassert(matches(axe::r_double(value), std::string("184467440737095516150e-1")) && value == UINT64_MAX);
+        gbassert(matches(axe::r_double(value), std::string("1.8446744073709551615e19")) && value == UINT64_MAX);
+        value = 7;
+        gbassert(!matches(axe::r_double(value), std::string("1.8446744073709551616e19")) && value == 7);
+        gbassert(!matches(axe::r_double(value), std::string("-0.1")) && value == 7);
+        gbassert(matches(axe::r_double(value), std::string("-0.000e1000")) && value == 0);
+
+        int whole = 7;
+        gbassert(matches(axe::r_double(whole), std::string("-3.7e1")) && whole == -37);
+        gbassert(matches(axe::r_double(whole), std::string("-3.7e-1")) && whole == 0);
     }
 
     GB_TEST(axe, test_integer_rules)
@@ -194,6 +241,48 @@ namespace
         gbassert(!extraction_failure((_int >> axe::e_push_back(numbers)) % ',', "4,99999999999").empty());
         std::string text = "12345";
         gbassert(axe::get_as<long>(axe::it_pair(text.begin(), text.end())) == 12345);
+    }
+
+    GB_TEST(axe, test_floating_stream_overflow)
+    {
+        auto check = [](auto initial)
+        {
+            using T = decltype(initial);
+            const auto exponent = std::to_string(std::numeric_limits<T>::max_exponent10 + 100);
+            for (const auto& text : { "1e" + exponent, "-1e" + exponent })
+            {
+                T value = initial;
+                gbassert(axe::detail::to_floating_stream(text, value) == axe::detail::number_status::out_of_range);
+                gbassert(value == initial);
+            }
+        };
+        check(7.0f);
+        check(7.0);
+        check(7.0L);
+    }
+
+    GB_TEST(axe, test_floating_stream_underflow)
+    {
+        auto check = [](auto initial)
+        {
+            using T = decltype(initial);
+            const auto exponent = std::to_string(-std::numeric_limits<T>::min_exponent10
+                + std::numeric_limits<T>::digits10 + 100);
+            for (const auto& text : { "1e-" + exponent, "-1e-" + exponent })
+            {
+                T value = initial;
+                gbassert(axe::detail::to_floating_stream(text, value) != axe::detail::number_status::ok);
+                gbassert(value == initial);
+            }
+            for (const std::string text : { "0", "0.000e-400", "-0e400" })
+            {
+                T value = initial;
+                gbassert(axe::detail::to_floating_stream(text, value) == axe::detail::number_status::ok && value == 0);
+            }
+        };
+        check(7.0f);
+        check(7.0);
+        check(7.0L);
     }
 
     GB_TEST(axe, test_number_conversion)
