@@ -1,12 +1,12 @@
 ---
-title: AXE 2.1
+title: AXE 2.2
 subtitle: Library Reference
-copyright: Copyright © 2011-2019 GB Research, LLC.
+copyright: Copyright © 2011-2026 GB Research, LLC.
 lang: en
 ---
 
 <!--
-  Editable source of the AXE Library Reference, converted from AXE-Reference-v2.1.pdf.
+  Editable source of the AXE Library Reference, first converted from AXE-Reference-v2.1.pdf.
   The PDF is generated from this file: see docs/README.md (make docs).
   Write GitHub-flavored Markdown; the PDF build reads it with pandoc -f gfm, so what GitHub shows is what gets printed.
 -->
@@ -35,7 +35,7 @@ in your source files and set the include directory in your compiler environment 
 
 [^recursive-descent]: [Recursive descent parser: Wikipedia](http://en.wikipedia.org/wiki/Recursive_descent_parser)
 
-# Changes after v.2.1
+# Changes in v.2.2
 
 | Change | Explanation |
 |---|---|
@@ -48,8 +48,9 @@ in your source files and set the include directory in your compiler environment 
 | Repetitions | `*A`, `+A`, `A % B` and `r_many` stop when an occurrence matches without consuming input, instead of repeating forever. |
 | Parse trees | `r_named(A)` and `A/C` produce the parse tree of A for any rule A. `parse_tree` of `A % B` no longer consumes a trailing separator. `write_xml` closes `<optional>` correctly. |
 | Binary input | `r_bin` and `r_lit` of a number match bytes of 0x80 or more also in `char` input; `r_var`, `r_array` and `r_sequence` accept `std::byte` input. |
+| Iterator transformations | `r_skip` with a skipper rule that matches empty input, such as `*_ws`, no longer skips forever. `r_convert` accepts lambdas with captures also around rules that assign iterators, such as `+A`. `r_buffered` compiles without warnings at `-Wextra`. |
 | Extraction | Extraction to `std::string_view` works with any contiguous iterator in C++20. `get_as` of an empty range returns a value-initialized object. |
-| Tests | The tests build with Visual Studio and, with the Makefile, with GCC and Clang. |
+| Tests | The tests build with Visual Studio and, with the Makefile, with GCC and Clang, and cover the rules that differed from this reference and the iterator transformation rules. |
 
 # Changes in v.2
 
@@ -72,7 +73,7 @@ additional facilities for convenience and improved performance. Most of AXE oper
 rules are iterator agnostic and can be used to parse text and binary data in files, containers, etc.
 The sequence and alternative rules (`&`, `|`, `-`) and the UTF-8 rules require at least forward iterators and check it
 with a `static_assert`, and `r_regex` requires bidirectional iterators. Input iterators, such as
-`std::istream_iterator`, can be parsed through [`r_buffered`](#axe-iterator-transformation-rules).
+`std::istreambuf_iterator`, can be parsed through [`r_buffered`](#axe-iterator-transformation-rules).
 AXE functions and classes are defined in `axe` namespace, operators are in `axe::operators` inline
 namespace, and shortcuts are in `axe::shortcuts` namespace.
 
@@ -271,12 +272,12 @@ iterator transformation rules are defined in AXE:
 
 | Syntax | Explanation |
 |---|---|
-| `r_skip(R, F)`<br>`r_skip(R, char)`<br>`r_skip(R, const char*)` | Rule creates skip-iterator, which omits all sequence elements satisfying F (it can be a predicate or a rule) and passes skip-iterator to the rule R.<br>When F denotes a predicate, it is applied to a single character from input and if it returns true the character is skipped. When F denotes a rule, all characters matching the rule are skipped.<br>This rule is usually used to skip white spaces, e.g. using a predicate: `r_skip(R, axe::is_wspace());` or using a rule: `r_skip(R, axe::r_any(" \t\n\r"));`<br>This is a convenience rule, that allows to avoid specifying characters, like spaces in rules explicitly, though specifying skip characters in rules explicitly is more flexible and may result in better performance. The characters are skipped between every pair of characters, not only between tokens: `r_skip(r_decimal(n), _ws)` reads `1 2` as 12.<br>Overloads of `r_skip` function which accept characters and character strings create iterators skipping specified characters, e.g. the following rule skips all white-space characters: `r_skip(R, " \t\n\r");` |
+| `r_skip(R, F)`<br>`r_skip(R, char)`<br>`r_skip(R, const char*)` | Rule creates skip-iterator, which omits all sequence elements satisfying F (it can be a predicate or a rule) and passes skip-iterator to the rule R.<br>When F denotes a predicate, it is applied to a single character from input and if it returns true the character is skipped. When F denotes a rule, all characters matching the rule are skipped.<br>This rule is usually used to skip white spaces, e.g. using a predicate: `r_skip(R, axe::is_wspace());` or using a rule: `r_skip(R, axe::r_any(" \t\n\r"));`<br>This is a convenience rule, that allows to avoid specifying characters, like spaces in rules explicitly, though specifying skip characters in rules explicitly is more flexible and may result in better performance. The characters are skipped between every pair of characters, not only between tokens: `r_skip(r_decimal(n), _ws)` reads `1 2` as 12.<br>Overloads of `r_skip` function which accept characters and character strings create iterators skipping specified characters, e.g. the following rule skips all white-space characters: `r_skip(R, " \t\n\r");`<br>The extractors in R receive the input without the skipped characters. A skipper rule that matches empty input, such as `*_ws`, stops skipping. |
 | `r_ucase(string, locale = std::locale())` | This rule transforms iterator to upper case iterator, using specified locale (or default locale), and matches the string. The string itself isn't converted, so it must be written in upper case.<br>It can be used for case insensitive match converting all characters to upper-case, e.g. `auto rule = _int & r_ucase("L");` |
 | `r_lcase(string, locale = std::locale())` | Same as above, but uses lower case transformation; the string must be written in lower case. |
 | `r_icase(string, locale = std::locale())` | Case insensitive match. It transforms both string and iterators to lower case. This rule is slower than `r_ucase` or `r_lcase`, because both input characters and string are converted. |
-| `r_convert(R, F)` | Creates a rule that passes R an iterator whose elements are the input elements converted by function F. The result of F must be convertible to the iterator's `value_type`. |
-| `r_buffered(R)` | Creates a buffer for input iterator, e.g. `istream_iterator`. Input iterators cannot be rolled back, so if a buffered rule is not matched an `axe::failure<charT>` exception is thrown with the message `"buffered rule failed"`. To minimize the amount of copying and the size of the buffer, only wrap the minimum necessary number of atomic rules in `r_buffered`. |
+| `r_convert(R, F)` | Creates a rule that passes R an iterator whose elements are the input elements converted by function F. The result of F must be convertible to the iterator's `value_type`. The extractors in R receive the converted elements. |
+| `r_buffered(R)` | Creates a buffer for input iterator, e.g. `istreambuf_iterator`. Inside the buffer R can backtrack like any rule. Input iterators cannot be rolled back, so if a buffered rule is not matched an `axe::failure<charT>` exception is thrown with the message `"buffered rule failed"`.<br>For the same reason R must end at the end of input or where it stopped reading. A rule that reads past its match, as `_int` reads the character after the number to see that it isn't a digit, throws `axe::failure<charT>` with the message `"input_buffer: rollback not possible"` unless the match is at the end of input; `_int & ' '` consumes that character. The returned position is in the input, so the next parse continues there.<br>To minimize the amount of copying and the size of the buffer, only wrap the minimum necessary number of atomic rules in `r_buffered`. |
 
 ### `r_rule` inside rules that change the iterator type
 

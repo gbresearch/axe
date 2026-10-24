@@ -5,7 +5,8 @@
 | `AXE-Reference.md` | The Library Reference, editable source of the PDF |
 | `reference-template.html`, `reference.css` | Page layout of the PDF: pandoc template and print stylesheet |
 | `linebreaks.lua` | pandoc filter for formats other than HTML, e.g. Word |
-| `AXE-Reference-v2.1.pdf` | The published v2.1 reference, made with Microsoft Word before the Markdown source existed |
+| `AXE-Reference-v2.2.pdf` | The published v2.2 reference, generated from `AXE-Reference.md` with `make docs` |
+| `AXE-Reference-v2.1.pdf` | The v2.1 reference, made with Microsoft Word before the Markdown source existed |
 | `AXE-Reference-Review.md` | Review of the v2.1 reference against the code, the fixes, and how each finding was resolved |
 
 ## Editing the reference
@@ -33,6 +34,9 @@ make docs CHROME_FLAGS=--no-sandbox               # when running as root, e.g. i
 ```
 
 `make docs` finds `google-chrome`, `chromium`, `chromium-browser` or `microsoft-edge` on the `PATH`; `CHROME=` names another browser. It doesn't need a C++ compiler or Yadro.
+
+To publish a new version, update the title and copyright line in the front matter of `AXE-Reference.md`, run `make docs`,
+and copy `build/docs/AXE-Reference.pdf` to `docs/AXE-Reference-v<version>.pdf`.
 
 ### Windows
 

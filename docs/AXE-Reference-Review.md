@@ -13,9 +13,11 @@ commit.
 - **Guide.** Every other finding was applied to [`AXE-Reference.md`](AXE-Reference.md), which also gained the
   features of section R and a *Changes after v.2.1* section. All its examples compile without warnings with GCC 14
   (C++17, C++20) and Clang 20 (C++20), and the examples that show their output print it.
-- **Open.** The version number and copyright line on the title page (A4) are unchanged and need the maintainer's
-  decision. The test suite still doesn't exercise `r_skip`, `r_buffered`, `r_convert` and the case conversion rules
-  (recommendation 4).
+- **Follow-up.** The reference became v2.2, copyright 2011-2026 (A4), published as
+  [`AXE-Reference-v2.2.pdf`](AXE-Reference-v2.2.pdf). `test/transform_test.cpp` now tests `r_skip`, `r_convert`,
+  `r_buffered` and the case rules (recommendation 4); it found three more defects, fixed in the code: `r_skip` skipped
+  forever with a skipper matching empty input, `r_convert` didn't compile with a lambda with captures around `+A`, and
+  `r_buffered` failed to compile at `-Wextra -Werror`.
 
 ## How the review was done
 
