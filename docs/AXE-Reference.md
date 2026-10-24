@@ -35,6 +35,14 @@ in your source files and set the include directory in your compiler environment 
 
 [^recursive-descent]: [Recursive descent parser: Wikipedia](http://en.wikipedia.org/wiki/Recursive_descent_parser)
 
+# Changes after v.2.2
+
+| Change | Explanation |
+|---|---|
+| Floating-point numbers | `r_double(t)`, `r_fixed(t)` and `r_ufixed(t)` assign the exact value. They built it from 32-bit integer parts, so a number with more than about 9 fractional digits or an integer part above 4294967295 was assigned a wrong value. A number too large or too small for the type of `t` fails the rule. |
+| Integer overflow | `r_decimal(t)`, `r_udecimal(t)`, `r_hex(t)`, `r_oct(t)` and `r_binary(t)` fail when the number doesn't fit the type of `t`, instead of wrapping around. The minimum of a signed type is read, and a negative number fails for an unsigned type unless it is zero. |
+| Extraction to numbers | `A >> t`, `e_push_back` and `get_as` convert to integer and floating-point types exactly. Text that isn't a number, or a number that doesn't fit the type, throws `axe::failure<charT>`; before, numbers were truncated or `std::invalid_argument` and `std::out_of_range` escaped from `parse`. |
+
 # Changes in v.2.2
 
 | Change | Explanation |
@@ -179,10 +187,10 @@ or providing more flexibility to the above operators.
 | `r_decimal(t)`<br>`r_decimal()` | Matches signed decimal number, assigning value to t |
 | `r_ufixed(t)`<br>`r_ufixed()` | Matches unsigned fixed point number, assigning value to t |
 | `r_fixed(t)`<br>`r_fixed()` | Matches signed fixed point number, assigning value to t |
-| `r_double(t)`<br>`r_double()` | Matches floating point number, assigning value to t.<br>Without an argument these rules only match. The signed rules accept spaces between the sign and the digits: `r_decimal(n)` reads `"- 42"` as -42. |
-| `r_hex(t)` | Matches unsigned hexadecimal number, assigning value to t (`r_hex()` without an argument matches a single hexadecimal character) |
-| `r_oct(t)` | Matches unsigned octal number, assigning value to t (`r_oct()` matches a single octal character) |
-| `r_binary(t)` | Matches unsigned binary number (`'0'` and `'1'`), assigning value to t (`r_binary()` matches a single binary character) |
+| `r_double(t)`<br>`r_double()` | Matches floating point number, assigning value to t.<br>Without an argument these rules only match. The signed rules accept spaces between the sign and the digits: `r_decimal(n)` reads `"- 42"` as -42.<br>The value assigned is exact: the value of the type of t closest to the number, as for a literal. A number that doesn't fit the type of t (too large, or too small for a floating-point type) fails the rule, and t isn't changed. A signed integer t reads the minimum of its type; an unsigned t reads a negative number only if it is zero. |
+| `r_hex(t)` | Matches unsigned hexadecimal number, assigning value to t; a number that doesn't fit the type of t fails (`r_hex()` without an argument matches a single hexadecimal character) |
+| `r_oct(t)` | Matches unsigned octal number, assigning value to t; a number that doesn't fit the type of t fails (`r_oct()` matches a single octal character) |
+| `r_binary(t)` | Matches unsigned binary number (`'0'` and `'1'`), assigning value to t; a number that doesn't fit the type of t fails (`r_binary()` matches a single binary character) |
 | `r_alpha()` | Matches a single alpha character ('A'-'Z','a'-'z', _); only ASCII letters are alpha characters |
 | `r_alphastr()` | Matches a string of alpha characters |
 | `r_alphastr(occurrence)` | Matches a string of alpha characters specified number of times |
@@ -465,7 +473,8 @@ the output:
 ## AXE exceptions
 
 `axe::failure<charT>` (`axe_exception.h`), derived from `std::exception`, is thrown by `r_fail(str)`, by `A > B` when
-B doesn't match, by `r_buffered` when its rule doesn't match, and by `axe::throw_failure`. `what()` returns the
+B doesn't match, by `r_buffered` when its rule doesn't match, by the [extraction to a number](#extracting-into-variables) of
+text that isn't a number or doesn't fit, and by `axe::throw_failure`. `what()` returns the
 message; `message()` returns a `std::basic_string<charT>` with the message and up to 39 characters of the input at the
 failed position. `charT` is the `value_type` of the iterator.
 
@@ -717,8 +726,7 @@ auto rule = r_ident() | r_fail(on_fail);
 | `std::basic_string` | the matched text |
 | `std::basic_string_view` | a view of the matched text, which refers to the input; with C++20 for any contiguous input, with C++17 only for pointers to the input |
 | `char`, `signed char`, `unsigned char`, `wchar_t`; `std::byte` (from `std::byte` input) | the first matched element |
-| `short`, `unsigned short`, `int`, `unsigned`, `long`, `unsigned long`, `long long`, `unsigned long long` | the number converted with `std::stoi`, `std::stoul`, `std::stol`, `std::stoll` or `std::stoull`, which throw `std::invalid_argument` when the text isn't a number |
-| `float`, `double`, `long double` | the number converted with `std::stof`, `std::stod` or `std::stold` |
+| `short`, `unsigned short`, `int`, `unsigned`, `long`, `unsigned long`, `long long`, `unsigned long long`, `float`, `double`, `long double` | the number, converted exactly with `std::from_chars`; white space around it, a sign, and spaces after the sign are allowed. Text that isn't a number, including a number followed by other text, or a number that doesn't fit the type, throws `axe::failure<charT>`. An empty match leaves `t` unchanged. |
 | `bool` | whether the match is non-empty |
 | `std::basic_ostream` | the matched text is written to the stream, e.g. `rule >> std::cout` |
 | any other type | read from the matched text with `operator>>` |
