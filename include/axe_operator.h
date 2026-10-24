@@ -135,7 +135,7 @@ namespace axe
         }
 
         //-------------------------------------------------------------------------
-        /// operator^ matches either the first or the second rule, but not both (r1 & !r2 | !r1 & r2)
+        /// operator^ matches the rules in either order, each at most once (r1 & ~r2 | r2 & ~r1)
         template<class R1, class R2>
         inline
             r_xor_t<detail::enable_if_rule<R1>, detail::enable_if_rule<R2>>

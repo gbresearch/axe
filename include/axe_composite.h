@@ -389,8 +389,12 @@ namespace axe
                     match = r_(match.position, i2);
                 if(match.matched)
                 {
+                    // an occurrence that consumes no input would repeat forever, stop once min_occurrence_ is reached
+                    auto progress = match.position != i_match.position;
                     i_match = match;
                     ++count;
+                    if(!progress && count >= min_occurrence_)
+                        break;
                 }
             }
 
@@ -403,36 +407,42 @@ namespace axe
         {
             using r_data_t = detail::parse_tree_data_t<R, Iterator>;
             std::vector<r_data_t> data;
-            
-            size_t count = 0;
-            auto rule_match = true;
-            auto sep_match = true;
-            auto i = itp.begin();
-            auto last_pos = i;
 
-            while (rule_match && sep_match && count < max_occurrence_)
+            size_t count = 0;
+            auto i = itp.begin();     // start of the next occurrence
+            auto last_pos = i;        // end of the last occurrence
+            auto fail_pos = i;        // position where the rule or the separator failed
+
+            while (count < max_occurrence_)
             {
                 auto rule_res = detail::parse_tree_invoke(r_, it_pair(i, itp.end()));
-                rule_match = rule_res.matched;
-                last_pos = rule_res.position;
-
-                if (rule_match)
+                if (!rule_res.matched)
                 {
-                    ++count;
-                    data.push_back(std::move(rule_res.data));
-
-                    // separators don't extract data
-                    auto sep_res = std::invoke(separator_, rule_res.position, itp.end());
-                    sep_match = sep_res.matched;
-                    if(sep_match)
-                        i = sep_res.position;
-                    else
-                        i = rule_res.position;
+                    fail_pos = rule_res.position;
+                    break;
                 }
+
+                // an occurrence that consumes no input would repeat forever, stop once min_occurrence_ is reached
+                auto progress = count == 0 || rule_res.position != last_pos;
+                ++count;
+                data.push_back(std::move(rule_res.data));
+                last_pos = rule_res.position;
+                if ((!progress && count >= min_occurrence_) || count >= max_occurrence_)
+                    break;
+
+                // separators don't extract data
+                auto sep_res = std::invoke(separator_, last_pos, itp.end());
+                if (!sep_res.matched)
+                {
+                    fail_pos = sep_res.position;
+                    break;
+                }
+                i = sep_res.position;
             }
 
+            // the result ends after the last occurrence, a trailing separator isn't consumed
             auto matched = count >= min_occurrence_;
-            return result(std::move(data), matched, matched ? i : last_pos);
+            return result(std::move(data), matched, matched ? last_pos : fail_pos);
         }
     };
 
@@ -514,10 +524,9 @@ namespace axe
         {
             auto res = detail::parse_tree_invoke(r_, itp);
 
-            for (; !itp.empty() && !res.matched; itp.next())
-            {
+            // each following position up to the last element is tried once, as in operator() above
+            while (!res.matched && !itp.empty() && !itp.next().empty())
                 res = detail::parse_tree_invoke(r_, itp);
-            }
 
             return res;
         }
@@ -640,7 +649,7 @@ namespace axe
     };
 
     //-----------------------------------------------------------------------------
-    // unordered AND class (match in any order)
+    // unordered AND class (match in any order) implements R1 & R2 | R2 & R1
     //-----------------------------------------------------------------------------
     template<class R1, class R2>
     class r_unordered_and_t final
@@ -654,17 +663,23 @@ namespace axe
         template<class Iterator>
         result<Iterator> operator()(Iterator i1, Iterator i2) const
         {
+            // R1 & R2
             auto match = r1_(i1, i2);
-			if (match.matched)
-			{
-				match = r2_(match.position, i2);
-			}
-			else
+            if (match.matched)
             {
-                match = r2_(i1, i2);
-                if(match.matched)
-                    match = r1_(match.position, i2);
+                match = r2_(match.position, i2);
+                if (match.matched)
+                    return match;
             }
+
+            // R2 & R1, also when R1 matched, but R2 didn't follow it
+            auto match2 = r2_(i1, i2);
+            if (match2.matched)
+                match2 = r1_(match2.position, i2);
+
+            // if failed return the longest match
+            if (match2.matched || std::distance(i1, match2.position) >= std::distance(i1, match.position))
+                return match2;
             return match;
         }
     };
@@ -812,6 +827,13 @@ namespace axe
         template<class I>
         result<I> operator() (I i1, I i2) const { return r_(i1, i2); }
 
+        // the name doesn't change the parse tree of the rule
+        template<class I>
+        auto operator() (it_pair<I> itp) const -> detail::parse_tree_result_t<const R&, I>
+        {
+            return detail::parse_tree_invoke(r_, itp);
+        }
+
         const char* name() const { return name_; }
     };
 
@@ -868,7 +890,7 @@ namespace axe
 		{
 			static_assert(is_input_iterator<I>);
 
-			auto rslt = r_(itp);
+			auto rslt = detail::parse_tree_invoke(r_, itp);
 			if (rslt.matched)
 			{
 				rslt.matched = test_constraint(itp.begin(), rslt.position, itp.end());

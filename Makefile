@@ -136,6 +136,7 @@ TEST_SOURCES := \
     test/reference.cpp \
     test/replacement_test.cpp \
     test/roman_numerals.cpp \
+    test/rules_test.cpp \
     test/utf8_test.cpp \
     test/wildcard_test.cpp \
     test/winpath_test.cpp \

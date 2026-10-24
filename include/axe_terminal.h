@@ -48,10 +48,11 @@ namespace axe
 
     //-------------------------------------------------------------------------
     /// r_bool rule allows including boolean expression evaluated at parse time
-    /// a (lambda) function taking 0,1, or 2 arguments and returing boolean 
+    /// a (lambda) function taking 0,1, or 2 arguments and returing boolean
     /// or a boolean variable can be passed to the constructor and will be invoked at parse time
     /// argument is held by copy, which is evaluated at construction time
     /// to make it evaluated at parse time wrap a variable in std::ref
+    /// a function taking iterators isn't called at the end of input, where the rule fails
     /// this rule doesn't advance the iterators
     //-------------------------------------------------------------------------
     template<class BoolT>
@@ -66,22 +67,21 @@ namespace axe
         result<Iterator> operator() (Iterator i1, Iterator2 i2) const
         {
             static_assert(is_input_iterator<Iterator>);
-            static_assert(std::is_convertible_v<std::decay_t<BoolT>, bool>
-                || is_function_object_v<BoolT, bool>
-                || is_function_object_v<BoolT, bool, Iterator>
-                || is_function_object_v<BoolT, bool, Iterator, Iterator>);
-            
-            if (i1 == i2)
-                return make_result(false, i1);
 
-            if constexpr(std::is_convertible_v<std::decay_t<BoolT>, bool>)
-                return make_result(b_, i1);
-            else if constexpr(is_function_object_v<BoolT, bool>)
+            // functions are tested first: a lambda without captures also converts to bool, as a function pointer
+            if constexpr(std::is_invocable_r_v<bool, const BoolT&>)
                 return make_result(std::invoke(b_), i1);
-            else if constexpr(is_function_object_v<BoolT, bool, Iterator>)
-                return make_result(std::invoke(b_, i1), i1);
-            else if constexpr(is_function_object_v<BoolT, bool, Iterator, Iterator>)
-                return make_result(std::invoke(b_, i1, i2), i1);
+            else if constexpr(std::is_invocable_r_v<bool, const BoolT&, Iterator>)
+                return make_result(i1 != i2 && std::invoke(b_, i1), i1);
+            else if constexpr(std::is_invocable_r_v<bool, const BoolT&, Iterator, Iterator2>)
+                return make_result(i1 != i2 && std::invoke(b_, i1, i2), i1);
+            else
+            {
+                static_assert(std::is_convertible_v<const BoolT&, bool>,
+                    "r_bool: the argument must be convertible to bool, or a function returning bool and taking no arguments, "
+                    "the current position, or the current position and the end of input");
+                return make_result(static_cast<bool>(b_), i1);
+            }
         }
 
         const char* name() const { return "r_bool"; }
@@ -154,8 +154,8 @@ namespace axe
 
             auto* p = reinterpret_cast<const unsigned char*>(&t);
             size_t s = 0;
-            // compare each byte
-            for(; i1 != i2 && s < sizeof(T) && *p == *i1; ++i1, ++p, ++s);
+            // compare each byte, as unsigned char: a signed char of the input wouldn't compare equal to a byte >= 0x80
+            for(; i1 != i2 && s < sizeof(T) && *p == static_cast<unsigned char>(*i1); ++i1, ++p, ++s);
             return make_result(s == sizeof(T), i1);
         }
 
@@ -373,7 +373,7 @@ namespace axe
             unsigned char* c = reinterpret_cast<unsigned char*>(&t);
             unsigned s = 0;
             for(; s < sizeof(T) && i1 != i2; ++i1, ++s)
-                c[s] = *i1;
+                c[s] = static_cast<unsigned char>(*i1);
 
             return make_result(s == sizeof(T), i1);
         }
@@ -451,7 +451,7 @@ namespace axe
             for(bool matched = true; matched && i1 != i2 && s < max_occurrence_; ++s)
             {
                 T t;
-                auto&& r = r_var<T>(t)(i1, i2);
+                auto r = r_var<T>(t)(i1, i2);
                 i1 = r.position;
                 matched = r.matched;
                 if(matched)
@@ -476,7 +476,7 @@ namespace axe
         result<Iterator> operator() (Iterator i1, Iterator2 i2) const
         {
             static_assert(is_input_iterator<Iterator>);
-            auto&& r = r_pred<is_alpha>(is_alpha())(i1, i2);
+            auto r = r_pred<is_alpha>(is_alpha())(i1, i2);
             if(r.matched)
             {   // all other alnum chars are optional
                 auto r1 = r_predstr<is_alnum>(is_alnum())(r.position, i2);
