@@ -522,9 +522,12 @@ namespace axe
             static_assert(std::is_convertible_v<OffsetT,
                 typename std::iterator_traits<Iterator>::difference_type>);
 
-            typename std::iterator_traits<Iterator>::difference_type i = 0;
-            for (; i1 != i2 && i != offset_; ++i1, ++i);
-            return result(i == offset_, i1);
+            using difference_type = typename std::iterator_traits<Iterator>::difference_type;
+            // read when the rule is evaluated, so r_advance(std::ref(n)) advances by the current value of n
+            const auto offset = static_cast<difference_type>(offset_);
+            difference_type i = 0;
+            for (; i1 != i2 && i != offset; ++i1, ++i);
+            return result(i == offset, i1);
         }
 
         const char* name() const { return "r_advance"; }

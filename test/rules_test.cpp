@@ -100,6 +100,20 @@ namespace
         gbassert(axe::parse(axe::r_var(value), input).matched && value == d);
     }
 
+    GB_TEST(axe, test_r_advance)
+    {
+        // the offset is copied when the rule is created, std::ref reads it at parse time;
+        // a size_t offset, as e_length stores it, compiles without sign-compare warnings
+        std::string text = "xxab";
+        size_t length = 0;
+        auto ab = axe::r_str("ab");
+        auto once = *(axe::r_any() - (ab >> axe::e_length(length))) & axe::r_advance(std::ref(length));
+        auto res = axe::parse(once, text);
+        gbassert(res.matched && res.position == text.end() && length == 2);
+        gbassert(axe::parse(axe::r_advance(size_t(3)), text).position == text.begin() + 3);
+        gbassert(!axe::parse(axe::r_advance(5), text).matched);
+    }
+
     GB_TEST(axe, test_r_many_literals)
     {
         // r_many(literal, count) repeats the literal, r_many(literal, literal) uses the second as separator
