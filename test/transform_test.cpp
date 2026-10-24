@@ -187,5 +187,60 @@ namespace
         gbassert(failure_message(axe::r_str("abd"), "abcdef") == "buffered rule failed");
         gbassert(failure_message(_int, "123 abc") == "input_buffer: rollback not possible");
         gbassert(failure_message(_int & ' ', "123 abc").empty());
+
+        // pointers and other forward iterators can be buffered too
+        const char* chars = "abcdef";
+        auto buffered = axe::parse(axe::r_buffered(axe::r_str("abc")), chars, chars + 6);
+        gbassert(buffered.matched && buffered.position == chars + 3);
+        const wchar_t* wide = L"123;";
+        auto wide_buffered = axe::parse(axe::r_buffered(_int >> value & ';'), wide, wide + 4);
+        gbassert(wide_buffered.matched && wide_buffered.position == wide + 4 && value == 123);
+    }
+
+    GB_TEST(axe, test_skip_it_pair)
+    {
+        // a range skipping elements, like the iterators of r_skip
+        std::string text = " a b  c ";
+        auto spaced = axe::make_skip_it_pair(text.begin(), text.end(), axe::is_wspace());
+        std::string collected;
+        for (auto c : spaced)
+            collected += c;
+        gbassert(collected == "abc");
+        gbassert(std::distance(spaced.begin(), spaced.end()) == 3);
+
+        // the iterator operators
+        auto i = spaced.begin();
+        auto old = i++;
+        gbassert(*old == 'a' && *i == 'b');
+        gbassert(*(spaced.begin() + 2) == 'c' && spaced.begin() + 3 == spaced.end());
+        gbassert(spaced.begin() + 10 == spaced.end());
+        std::string::iterator underlying = i;
+        gbassert(underlying == text.begin() + 3 && i.get() == underlying);
+        gbassert(*i.operator->() == 'b');
+        decltype(spaced)::iterator unset;
+        unset = spaced.begin();
+        gbassert(*unset == 'a');
+
+        // a string of characters, a character, pointer iterators, and rules, also one matching empty input
+        const char* chars = "x,y;z";
+        collected.clear();
+        for (auto c : axe::make_skip_it_pair(chars, chars + 5, ",;"))
+            collected += c;
+        gbassert(collected == "xyz");
+        auto commas = axe::make_skip_it_pair(chars, chars + 5, ',');
+        gbassert(std::distance(commas.begin(), commas.end()) == 4);
+        gbassert(*commas.begin().operator->() == 'x');
+        std::string commented = "1;comment\n2";
+        auto uncommented = axe::make_skip_it_pair(commented.begin(), commented.end(), ';' & *(_ - _n) & _n);
+        gbassert(std::string(uncommented.begin(), uncommented.end()) == "12");
+        auto empty_skipper = axe::make_skip_it_pair(text.begin(), text.end(), *_ws);
+        gbassert(std::string(empty_skipper.begin(), empty_skipper.end()) == "abc");
+
+        // rules parse the range
+        std::string list = " 1 , 2 ";
+        auto items = axe::make_skip_it_pair(list.begin(), list.end(), axe::is_wspace());
+        int first = 0, second = 0;
+        gbassert(axe::parse(_int >> first & ',' & _int >> second & _z, items.begin(), items.end()).matched);
+        gbassert(first == 1 && second == 2);
     }
 }

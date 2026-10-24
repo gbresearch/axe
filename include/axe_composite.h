@@ -497,6 +497,7 @@ namespace axe
 
     //-----------------------------------------------------------------------------
     /// rule to find specified rule (skip input elements until specified rule matched)
+    /// each position is tried once, up to and including the end of input, where e.g. r_end() matches
     //-----------------------------------------------------------------------------
     template<class R>
     class r_find_t final
@@ -509,24 +510,22 @@ namespace axe
         template<class Iterator, class Iterator2>
         result<Iterator> operator() (Iterator i1, Iterator2 i2)  const
         {
-            auto&& match = make_result(false, i1);
-
-            for(; i1 != i2 && !match.matched; ++i1)
+            for(;; ++i1)
             {
-                match = r_(i1, i2);
+                auto match = r_(i1, i2);
+                if(match.matched || i1 == i2)
+                    return match;
             }
-
-            return match;
         }
-        
+
         template<class Iterator>
         auto operator() (it_pair<Iterator> itp)  const -> detail::parse_tree_result_t<R, Iterator>
         {
             auto res = detail::parse_tree_invoke(r_, itp);
 
-            // each following position up to the last element is tried once, as in operator() above
-            while (!res.matched && !itp.empty() && !itp.next().empty())
-                res = detail::parse_tree_invoke(r_, itp);
+            // the same positions as operator() above
+            while (!res.matched && !itp.empty())
+                res = detail::parse_tree_invoke(r_, itp.next());
 
             return res;
         }
