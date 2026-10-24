@@ -374,7 +374,7 @@ namespace axe
     /// r_fixed_t rule matches signed fixed-point number
     //-------------------------------------------------------------------------
     template<>
-    class r_fixed_t<void> 
+    class r_fixed_t<void>
     {
     public:
         template<class Iterator, class Iterator2>
@@ -393,7 +393,7 @@ namespace axe
     /// r_double_t matches floating point number
     //-------------------------------------------------------------------------
     template<>
-    class r_double_t<void> 
+    class r_double_t<void>
     {
     public:
         template<class Iterator, class Iterator2>
@@ -418,7 +418,7 @@ namespace axe
     /// a number that doesn't fit T fails and isn't assigned
     //-------------------------------------------------------------------------
     template<class T>
-    class r_ufixed_t 
+    class r_ufixed_t
     {
         T& number_;
     public:
@@ -441,7 +441,7 @@ namespace axe
     /// a number that doesn't fit T fails and isn't assigned
     //-------------------------------------------------------------------------
     template<class T>
-    class r_fixed_t 
+    class r_fixed_t
     {
         T&  number_;
     public:
@@ -465,7 +465,7 @@ namespace axe
     /// a number that doesn't fit T, too large or too small, fails and isn't assigned
     //-------------------------------------------------------------------------
     template<class T>
-    class r_double_t 
+    class r_double_t
     {
         T& d_;
 
