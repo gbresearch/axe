@@ -1,9 +1,21 @@
 # Review of the AXE 2.1 Library Reference against the current code
 
 This report lists the parts of [`AXE-Reference-v2.1.pdf`](AXE-Reference-v2.1.pdf) (41 pages, 2019) that no longer
-describe the code in `include/`, with a suggested fix for each. The editable source of the reference,
-[`AXE-Reference.md`](AXE-Reference.md), is a faithful conversion of that PDF: apart from the typographic artifacts
-described in B3, it still contains every issue below, so each fix can be applied to it and reviewed as an ordinary diff.
+described the code in `include/` at commit `771ddc1`, with a suggested fix for each. The code references link to that
+commit.
+
+## Resolution
+
+- **Code.** The defects of section S were fixed in the code, with tests in `test/rules_test.cpp`, together with four
+  more found while fixing them (S12-S15). B1 (`A && B`) and I2 (`r_named` in a parse tree) were also fixed in the code,
+  so the guide's description of them became true. N1 (the iterator passed to a one-argument extractor) was kept in the
+  code and corrected in the guide, because existing parsers may rely on it.
+- **Guide.** Every other finding was applied to [`AXE-Reference.md`](AXE-Reference.md), which also gained the
+  features of section R and a *Changes after v.2.1* section. All its examples compile without warnings with GCC 14
+  (C++17, C++20) and Clang 20 (C++20), and the examples that show their output print it.
+- **Open.** The version number and copyright line on the title page (A4) are unchanged and need the maintainer's
+  decision. The test suite still doesn't exercise `r_skip`, `r_buffered`, `r_convert` and the case conversion rules
+  (recommendation 4).
 
 ## How the review was done
 
@@ -34,7 +46,7 @@ Kinds of findings:
 | Incomplete, Missing | 25 | the parse-tree rows and constraint signatures (B2, I3), extraction target types (N3), `get_as` overloads (J2); `r_depth_limit`, the UTF-8 rules and the `failure` exception are not in the guide at all (section R) |
 | Typo | 8 | `axe;r_oct()`, `axe::alnumstr()`, `axe_util.h`, `r_expression_t` |
 
-Section S lists eleven defects in the code found while checking the guide. They are not documentation errors, but several
+Section S lists the defects in the code found while checking the guide: eleven during the review, four more (S12-S15) while fixing them. They are not documentation errors, but several
 of them decide what the guide should say (for example S2, the `r_bool` end-of-input behavior).
 
 Nine of the eleven example programs in the *Examples* chapter compile. Five of them print what the guide shows, two
@@ -50,8 +62,8 @@ printed (P1, P3).
 **Guide** (Introduction, p. 3; *Changes in v.2*, "compiler" row, p. 4): "The library uses standard C++17 … It's been tested
 with Visual C++ 2017 and expected to work with any other reasonably compliant C++17 compiler."
 
-**Code**: [`axe_macro.h:33-39`](../include/axe_macro.h#L33-L39) still requires C++17 (or MSVC 19.14). C++20 adds the
-template string literal and `char8_t` input ([`axe_shortcut.h:86-104`](../include/axe_shortcut.h#L86-L104)).
+**Code**: [`axe_macro.h:33-39`](https://github.com/gbresearch/axe/blob/771ddc1ba8c0afa940529a1de8e6dd64bc0ada74/include/axe_macro.h#L33-L39) still requires C++17 (or MSVC 19.14). C++20 adds the
+template string literal and `char8_t` input ([`axe_shortcut.h:86-104`](https://github.com/gbresearch/axe/blob/771ddc1ba8c0afa940529a1de8e6dd64bc0ada74/include/axe_shortcut.h#L86-L104)).
 [`README.md`](../README.md#requirements) lists the compilers the code is tested with today.
 
 **Suggested text**: "AXE needs C++17; C++20 is needed for `char8_t` input and for the compile-time string literals
@@ -70,7 +82,7 @@ parameter (P0732, `detail::string_literal`); with C++17 `"abc"_axe` is `r_str`.
 ### A3. Header name `axe_util.h` — **Typo**
 **Guide** (*Changes in v.2*, "Parse tree functions", p. 4): "convenience functions in axe_util.h".
 
-**Code**: the header is [`axe_utility.h`](../include/axe_utility.h).
+**Code**: the header is [`axe_utility.h`](https://github.com/gbresearch/axe/blob/771ddc1ba8c0afa940529a1de8e6dd64bc0ada74/include/axe_utility.h).
 
 ### A4. Version number and copyright line — **Outdated** (maintainer's decision)
 The title says *AXE 2.1* and every page says *Copyright © 2011-2019 GB Research, LLC.* The headers say
@@ -87,7 +99,7 @@ section R below.
 ### B1. `A && B` is not `A & B | B & A` — **Wrong**
 **Guide**: "Match rule A and B in any order (same as `A & B | B & A`)".
 
-**Code**: `r_unordered_and_t` ([`axe_composite.h:646`](../include/axe_composite.h#L646)) tries `B` then `A` only when `A`
+**Code**: `r_unordered_and_t` ([`axe_composite.h:646`](https://github.com/gbresearch/axe/blob/771ddc1ba8c0afa940529a1de8e6dd64bc0ada74/include/axe_composite.h#L646)) tries `B` then `A` only when `A`
 fails at the start. When `A` matches but `B` doesn't follow, it fails without trying `B & A`.
 
 **Evidence**: with `A = r_char('a')`, `B = r_str("ab")` and input `"aba"`, `A && B` doesn't match; `A & B | B & A` does.
@@ -97,7 +109,7 @@ fails at the start. When `A` matches but `B` doesn't follow, it fails without tr
 when A matches but B doesn't follow it."
 
 ### B2. `A/C`: the constraint's signature isn't given — **Incomplete**
-**Code**: `r_constrained` ([`axe_composite.h:824-881`](../include/axe_composite.h#L824-L881)) accepts a constraint
+**Code**: `r_constrained` ([`axe_composite.h:824-881`](https://github.com/gbresearch/axe/blob/771ddc1ba8c0afa940529a1de8e6dd64bc0ada74/include/axe_composite.h#L824-L881)) accepts a constraint
 callable as `bool()`, `bool(I first)`, `bool(I first, I last)` or `bool(I first, I last, I end)`, where `[first, last)`
 is the range matched by A and `end` is the end of the input.
 
@@ -117,7 +129,7 @@ They match the same input, but in a parse tree `~A` produces `std::optional<DA>`
 | Row | Guide | Fix |
 |---|---|---|
 | `_o` | `axe;r_oct()` | `axe::r_oct()` — **Typo** |
-| `_w` | `axe::alnumstr()` | `axe::r_alnumstr()` — **Typo** ([`axe_shortcut.h:81`](../include/axe_shortcut.h#L81)) |
+| `_w` | `axe::alnumstr()` | `axe::r_alnumstr()` — **Typo** ([`axe_shortcut.h:81`](https://github.com/gbresearch/axe/blob/771ddc1ba8c0afa940529a1de8e6dd64bc0ada74/include/axe_shortcut.h#L81)) |
 | `_ws` | White space: `" \t\n\r"` | White space: `axe::r_pred(axe::is_wspace())`, one of `' '`, `'\t'`, `'\n'`, `'\r'` — **Incomplete** |
 | `_hs`, `_ident` | `r_any(" \t")`, `r_ident()` | add the `axe::` prefix used in the other rows — **Typo** |
 
@@ -126,7 +138,7 @@ They match the same input, but in a parse tree `~A` produces `std::optional<DA>`
 ### D1. `"str"_axe` — **Outdated**
 **Guide**: "Creates `axe::r_str("str")` rule. For GCC (implementing n3599) this operator creates `r_strlit<'s','t','r'>`".
 
-**Code** ([`axe_shortcut.h:86-112`](../include/axe_shortcut.h#L86-L112)): with C++20 or later, on every compiler,
+**Code** ([`axe_shortcut.h:86-112`](https://github.com/gbresearch/axe/blob/771ddc1ba8c0afa940529a1de8e6dd64bc0ada74/include/axe_shortcut.h#L86-L112)): with C++20 or later, on every compiler,
 `"str"_axe` is `r_strlit<'s','t','r'>` and `""_axe` is `r_empty`; it works with `char`, `wchar_t`, `char8_t`, `char16_t`
 and `char32_t` literals, and characters after an embedded `\0` are matched too. With C++17 it is `r_str` and works with
 `char` and `wchar_t` literals.
@@ -135,7 +147,7 @@ and `char32_t` literals, and characters after an embedded `\0` are matched too. 
 already has the right wording.
 
 ### D2. Character literals and wide strings — **Missing**
-`'c'_axe` (`char` or `wchar_t`) creates `r_char('c')` ([`axe_shortcut.h:114-123`](../include/axe_shortcut.h#L114-L123)).
+`'c'_axe` (`char` or `wchar_t`) creates `r_char('c')` ([`axe_shortcut.h:114-123`](https://github.com/gbresearch/axe/blob/771ddc1ba8c0afa940529a1de8e6dd64bc0ada74/include/axe_shortcut.h#L114-L123)).
 `_any` and `_regex` also accept `wchar_t` strings. Add a `'c'_axe` row.
 
 ---
@@ -146,7 +158,7 @@ already has the right wording.
 **Guide**: "`parse_expression` … returns either expression value if evaluation succeeded, or `def_value` if it failed.
 The white-space characters are skipped."
 
-**Code** ([`axe_expression.h:127-133`](../include/axe_expression.h#L127-L133)): the result is the value of the longest
+**Code** ([`axe_expression.h:127-133`](https://github.com/gbresearch/axe/blob/771ddc1ba8c0afa940529a1de8e6dd64bc0ada74/include/axe_expression.h#L127-L133)): the result is the value of the longest
 *prefix* that is an expression; trailing text is ignored. White space is skipped everywhere, including inside numbers,
 because the rule runs under `r_skip`.
 
@@ -159,20 +171,20 @@ string doesn't start with one. Because white space is skipped between all charac
 ### E2. `r_fail(F)`: which iterators the function receives — **Incomplete**
 **Guide** (p. 7): "Function receives upto three iterators: beginning of range, failed position, end of range."
 
-**Code** ([`axe_composite.h:539-556`](../include/axe_composite.h#L539-L556)): `void(I)` receives the failed position;
+**Code** ([`axe_composite.h:539-556`](https://github.com/gbresearch/axe/blob/771ddc1ba8c0afa940529a1de8e6dd64bc0ada74/include/axe_composite.h#L539-L556)): `void(I)` receives the failed position;
 `void(I, I)` the failed position and the end of the input; `void(I, I, I)` the position where the failed rule started,
 the failed position and the end.
 The *Semantic Actions* table (p. 21) describes this correctly. Suggest copying that wording here.
 
 ### E3. `r_fail(string = "")` — **Wrong**
-**Code** ([`axe_composite_function.h:100-109`](../include/axe_composite_function.h#L100-L109)): the overloads are
+**Code** ([`axe_composite_function.h:100-109`](https://github.com/gbresearch/axe/blob/771ddc1ba8c0afa940529a1de8e6dd64bc0ada74/include/axe_composite_function.h#L100-L109)): the overloads are
 `r_fail(std::string)` and `r_fail(const char* str = "r_fail")`, so `r_fail()` throws with the message `"r_fail"`.
 
 **Suggested text**: "`r_fail(str = "r_fail")`: when the preceding rule fails, `axe::failure<charT>` is thrown;
 `what()` returns `str`, and `message()` adds up to 39 characters of the input at the failed position."
 
 ### E4. `r_bool(b)`: the example fails when the number is at the end of the input — **Broken example**
-**Code** ([`axe_terminal.h:74-75`](../include/axe_terminal.h#L74-L75)): `r_bool` never matches at the end of the input.
+**Code** ([`axe_terminal.h:74-75`](https://github.com/gbresearch/axe/blob/771ddc1ba8c0afa940529a1de8e6dd64bc0ada74/include/axe_terminal.h#L74-L75)): `r_bool` never matches at the end of the input.
 
 **Evidence**: the guide's rule `_int >> number & r_bool([&] { return number > 0 && number < 1000; })` doesn't match
 `"123"`, but matches `"123;"`. The `r_constrained` example on p. 8 matches `"123"` and rejects `"1234"`.
@@ -185,7 +197,7 @@ currently treated as the constant `true`.
 ### E5. `r_array(a)` — **Wrong**
 **Guide**: "Matches a static array of rules (`std::array`). Same as `r_and<T…>`."
 
-**Code** ([`axe_terminal.h:391-419`](../include/axe_terminal.h#L391-L419)): `r_array(std::array<T, N>& a)` reads `N`
+**Code** ([`axe_terminal.h:391-419`](https://github.com/gbresearch/axe/blob/771ddc1ba8c0afa940529a1de8e6dd64bc0ada74/include/axe_terminal.h#L391-L419)): `r_array(std::array<T, N>& a)` reads `N`
 binary values of type `T` from the input into `a` (`sizeof(T)` bytes each, like `r_var`); it needs forward iterators
 over bytes.
 
@@ -197,7 +209,7 @@ into `a`, `sizeof(T)` bytes each. Fails if the input is shorter."
 ### E6. `r_sequence(c, min_occurrence = 0, max_occurrence = -1)` — **Wrong**
 **Guide**: "Matches a sequence of rules specified number of times".
 
-**Code** ([`axe_terminal.h:428-461`](../include/axe_terminal.h#L428-L461)): reads up to `max_occurrence` binary values of
+**Code** ([`axe_terminal.h:428-461`](https://github.com/gbresearch/axe/blob/771ddc1ba8c0afa940529a1de8e6dd64bc0ada74/include/axe_terminal.h#L428-L461)): reads up to `max_occurrence` binary values of
 `C::value_type` from the input and appends them to the container `c` with `push_back`; matches if `c` then holds at least
 `min_occurrence` values. `c` is cleared when the rule is constructed, not on each parse, so parsing twice with the same
 rule object appends to the values of the first parse.
@@ -209,7 +221,7 @@ rule object appends to the values of the first parse.
 ### E7. `r_ident()` "(`r_alpha() & r_alnumstr(0)`)" — **Wrong**
 `r_alnumstr(0)` matches exactly zero characters, so the expression in the guide matches a single letter.
 
-**Code** ([`axe_terminal.h:473-489`](../include/axe_terminal.h#L473-L489)): a letter or `_` followed by any number of
+**Code** ([`axe_terminal.h:473-489`](https://github.com/gbresearch/axe/blob/771ddc1ba8c0afa940529a1de8e6dd64bc0ada74/include/axe_terminal.h#L473-L489)): a letter or `_` followed by any number of
 letters, digits and `_`.
 
 **Evidence**: on `"ab1 "`, `r_alpha() & r_alnumstr(0)` consumes 1 character; `r_ident()` and `r_alpha() & *r_alnum()` consume 3.
@@ -219,7 +231,7 @@ letters, digits and `_`.
 ### E8. `r_advance(size)`: the example doesn't compile and the idiom doesn't work — **Broken example**
 **Guide** (p. 9): `*(r_any() - (R >> e_length(s)) & r_advance(s); // matches R once`
 - The parentheses are unbalanced.
-- `r_advance` stores a copy of its argument ([`axe_terminal.h:513`](../include/axe_terminal.h#L513)), so `r_advance(s)`
+- `r_advance` stores a copy of its argument ([`axe_terminal.h:513`](https://github.com/gbresearch/axe/blob/771ddc1ba8c0afa940529a1de8e6dd64bc0ada74/include/axe_terminal.h#L513)), so `r_advance(s)`
   advances by the value `s` had when the rule was built (usually 0), not by the length `e_length(s)` stored during the
   parse. `r_advance(std::ref(s))` reads it at parse time.
 - This is also why the Windows path example never terminates (P4).
@@ -235,25 +247,25 @@ size_t s = 0;
 and "`size` is copied when the rule is created; pass `std::ref(n)` to use the value `n` has when the rule is evaluated."
 
 ### E9. `r_range` — **Incomplete**
-There is also `r_range(const Container& c)`, matching the elements of `c` ([`axe_terminal.h:549`](../include/axe_terminal.h#L549)).
+There is also `r_range(const Container& c)`, matching the elements of `c` ([`axe_terminal.h:549`](https://github.com/gbresearch/axe/blob/771ddc1ba8c0afa940529a1de8e6dd64bc0ada74/include/axe_terminal.h#L549)).
 
 ### E10. Numeric rules — **Incomplete**
 - `r_udecimal()`, `r_decimal()`, `r_ufixed()`, `r_fixed()`, `r_double()` without an argument match without storing a value
   (the shortcuts `_uint`, `_int`, `_double` use them).
 - `r_hex(t)`, `r_oct(t)` and `r_binary(t)` match unsigned hexadecimal, octal and binary numbers and store the value in `t`
-  ([`axe_numeric_function.h:53-68`](../include/axe_numeric_function.h#L53-L68)). Note that `r_hex()` and `r_oct()` without
+  ([`axe_numeric_function.h:53-68`](https://github.com/gbresearch/axe/blob/771ddc1ba8c0afa940529a1de8e6dd64bc0ada74/include/axe_numeric_function.h#L53-L68)). Note that `r_hex()` and `r_oct()` without
   an argument are the single-character rules.
 - The signed rules accept spaces between the sign and the digits: `r_decimal(n)` reads `"- 42"` as -42.
 
 ### E11. Binary-digit rules and `r_anystr(n)` — **Missing**
 `r_binary()`, `r_binstr()`, `r_binstr(occurrence)`, `r_binstr(min_occurrence, max_occurrence)` match `'0'` and `'1'`
-([`axe_terminal_function.h:279-303`](../include/axe_terminal_function.h#L279-L303)). `r_anystr(occurrence)` matches any
-`occurrence` characters ([`axe_terminal_function.h:366`](../include/axe_terminal_function.h#L366)). Add rows next to the
+([`axe_terminal_function.h:279-303`](https://github.com/gbresearch/axe/blob/771ddc1ba8c0afa940529a1de8e6dd64bc0ada74/include/axe_terminal_function.h#L279-L303)). `r_anystr(occurrence)` matches any
+`occurrence` characters ([`axe_terminal_function.h:366`](https://github.com/gbresearch/axe/blob/771ddc1ba8c0afa940529a1de8e6dd64bc0ada74/include/axe_terminal_function.h#L366)). Add rows next to the
 octal and hexadecimal rules.
 
 ### E12. Character class rows — **Typo**
 "octodecimal" should be "octal" (four rows); "Matched octodecimal character" should be "Matches an octal character".
-"Printable" means the ASCII characters `' '` to `'~'` ([`axe_predicate.h:105`](../include/axe_predicate.h#L105)), and
+"Printable" means the ASCII characters `' '` to `'~'` ([`axe_predicate.h:105`](https://github.com/gbresearch/axe/blob/771ddc1ba8c0afa940529a1de8e6dd64bc0ada74/include/axe_predicate.h#L105)), and
 `is_alpha` is ASCII letters and `_` only. Saying so avoids surprises with non-ASCII input.
 
 ### E13. `r_regex`: "should usually start with ^" — **Incomplete**
@@ -268,7 +280,7 @@ expression with `^` makes failing matches faster, because the search then doesn'
 Needs bidirectional iterators."
 
 ### E14. `r_str(str)` with a `const charT*` keeps the pointer — **Incomplete**
-`r_str(const CharT*)` stores the pointer, not a copy ([`axe_terminal.h:199-202`](../include/axe_terminal.h#L199-L202));
+`r_str(const CharT*)` stores the pointer, not a copy ([`axe_terminal.h:199-202`](https://github.com/gbresearch/axe/blob/771ddc1ba8c0afa940529a1de8e6dd64bc0ada74/include/axe_terminal.h#L199-L202));
 `r_str(std::basic_string)` copies the string. Suggest: "the character array must outlive the rule, e.g.
 `r_str(s.c_str())` dangles once `s` changes; pass the `std::string` instead."
 
@@ -284,7 +296,7 @@ matched byte by byte. The example's `r_lit(1.23)` is affected by S3: it doesn't 
 ### F1. `r_buffered`: exception type — **Wrong**
 **Guide**: "an `axe::r_failure` exception is thrown".
 
-**Code** ([`axe_composite.h:794`](../include/axe_composite.h#L794)): `axe::failure<charT>` with the message
+**Code** ([`axe_composite.h:794`](https://github.com/gbresearch/axe/blob/771ddc1ba8c0afa940529a1de8e6dd64bc0ada74/include/axe_composite.h#L794)): `axe::failure<charT>` with the message
 `"buffered rule failed"`. There is no `r_failure`.
 
 ### F2. `r_skip`, `r_convert`, `r_buffered` change the iterator type — **Incomplete**
@@ -308,7 +320,7 @@ Suggest adding "The string itself isn't converted: write it in upper case (lower
 ## G. AXE Predicate Functions (p. 13)
 
 ### G1. `is_bin()` — **Missing**
-`is_bin` returns true for `'0'` and `'1'` ([`axe_predicate.h:93`](../include/axe_predicate.h#L93)). It may also help to
+`is_bin` returns true for `'0'` and `'1'` ([`axe_predicate.h:93`](https://github.com/gbresearch/axe/blob/771ddc1ba8c0afa940529a1de8e6dd64bc0ada74/include/axe_predicate.h#L93)). It may also help to
 say that `is_alpha`, `is_num`, … are types, and `is_alpha()` creates an object of that type.
 
 ## H. AXE polymorphic rule (p. 13)
@@ -326,7 +338,7 @@ r = '[' & (_int | a) & ']';
 
 ### H2. Default `r_rule`, iterator type — **Incomplete**
 A default-constructed `r_rule` matches empty input and converts to `false`
-([`axe_composite.h:618-640`](../include/axe_composite.h#L618-L640)). `r_rule<I>` can only be called with iterators
+([`axe_composite.h:618-640`](https://github.com/gbresearch/axe/blob/771ddc1ba8c0afa940529a1de8e6dd64bc0ada74/include/axe_composite.h#L618-L640)). `r_rule<I>` can only be called with iterators
 convertible to `I` (a `static_assert` says so); see F2 for `r_skip`, `r_convert` and `r_buffered`.
 
 ---
@@ -336,7 +348,7 @@ convertible to `I` (a `static_assert` says so); see F2 for `r_skip`, `r_convert`
 ### I1. `A > B > …` — **Wrong**
 **Guide**: `std::tuple<DA, DB, …>`.
 
-**Code**: `r_atomic_t` ([`axe_composite.h:701`](../include/axe_composite.h#L701)) has no parse-tree `operator()`, so the
+**Code**: `r_atomic_t` ([`axe_composite.h:701`](https://github.com/gbresearch/axe/blob/771ddc1ba8c0afa940529a1de8e6dd64bc0ada74/include/axe_composite.h#L701)) has no parse-tree `operator()`, so the
 data is `axe::it_pair<I>`.
 
 **Evidence**: `decltype(parse_tree(_d > _a, s).data)` is `it_pair<std::string::iterator>`.
@@ -346,7 +358,7 @@ data is `axe::it_pair<I>`.
 ### I2. `r_named(A)` — **Wrong**
 **Guide**: "`r_find<A>`, `r_named<A>`: DA -- the same type as for rule A".
 
-**Code**: `r_named_t` ([`axe_composite.h:804`](../include/axe_composite.h#L804)) has no parse-tree `operator()`, so its data
+**Code**: `r_named_t` ([`axe_composite.h:804`](https://github.com/gbresearch/axe/blob/771ddc1ba8c0afa940529a1de8e6dd64bc0ada74/include/axe_composite.h#L804)) has no parse-tree `operator()`, so its data
 is `it_pair<I>`. `r_find(A)` does produce `DA`.
 
 **Evidence**: `parse_tree(r_named(_d & _a, "x"), s).data` is `it_pair`; `parse_tree(r_find(_d & _a), s).data` is a tuple.
@@ -356,19 +368,19 @@ is `it_pair<I>`. `r_find(A)` does produce `DA`.
 ### I3. Rows to add — **Incomplete**
 - `A/C` and `r_depth_limit(A, n)` produce `DA`.
 - `A >> E` produces `it_pair<I>`, and the extractor still runs. With `AXE_ALLOW_PARSE_TREE_EXTRACTION` defined,
-  `A >> E` produces `DA` and passes it to `E` ([`axe_extractor.h:85-100`](../include/axe_extractor.h#L85-L100)).
+  `A >> E` produces `DA` and passes it to `E` ([`axe_extractor.h:85-100`](https://github.com/gbresearch/axe/blob/771ddc1ba8c0afa940529a1de8e6dd64bc0ada74/include/axe_extractor.h#L85-L100)).
 - `A && B`, `A || B`, `A ^ B`, `!A`, `r_test(A)`, `r_select(A, B, C)` and the transformation rules produce `it_pair<I>`.
   Listing them avoids readers expecting tuples, as in I1.
 
 ## J. AXE Utility functions (pp. 15-16)
 
 ### J1. `parse_expression` isn't in `axe_utility.h` — **Wrong**
-It is in [`axe_expression.h:127`](../include/axe_expression.h#L127). Move the row, or change the introduction to
+It is in [`axe_expression.h:127`](https://github.com/gbresearch/axe/blob/771ddc1ba8c0afa940529a1de8e6dd64bc0ada74/include/axe_expression.h#L127). Move the row, or change the introduction to
 "defined in the axe namespace".
 
 ### J2. `get_as` overloads — **Incomplete**
 The table lists only `get_as<D>(const Data&)`, but the `r_constrained` example on p. 8 already uses another overload.
-All of them ([`axe_utility.h:214-259`](../include/axe_utility.h#L214-L259)):
+All of them ([`axe_utility.h:214-259`](https://github.com/gbresearch/axe/blob/771ddc1ba8c0afa940529a1de8e6dd64bc0ada74/include/axe_utility.h#L214-L259)):
 `get_as<D>(I first, I last)`, `get_as<D>(const it_pair<I>&)`, `get_as<D>(const Data&)`,
 `get_as<D>(const result<I, T>&)` and `get_as<D>(const result<I, T>&, Fn fn)`, which converts `fn(res.data)`.
 The conversion uses the in-place extractors (see N3), so for example `get_as<int>` throws `std::invalid_argument` when the
@@ -384,7 +396,7 @@ closing tag of `<optional>`.
 ## K. Creating custom predicates (p. 17)
 
 ### K1. `axe::is_predicate<custom>::value` doesn't exist — **Wrong**
-**Code** ([`axe_trait.h:179-189`](../include/axe_trait.h#L179-L189)): the trait is `axe::is_predicate_v<custom>`. It
+**Code** ([`axe_trait.h:179-189`](https://github.com/gbresearch/axe/blob/771ddc1ba8c0afa940529a1de8e6dd64bc0ada74/include/axe_trait.h#L179-L189)): the trait is `axe::is_predicate_v<custom>`. It
 is true when `custom` returns `bool` for an argument of type `char`, `signed char`, `unsigned char`, `wchar_t`,
 `char16_t` or `char32_t`.
 
@@ -412,14 +424,14 @@ auto custom = [](auto i1, auto i2)
 ```
 
 ### L2. `const operator()` is now enforced — **Incomplete**
-The text says custom rules define a const `operator()`. The composite rules now check it with a `static_assert`,
-"every operand must be a rule with a const operator()" ([`axe_composite.h:177`](../include/axe_composite.h#L177)), and a
+The text says custom rules define a const `operator()`. `&`, `-` and `|` now check it with a `static_assert`,
+"every operand must be a rule with a const operator()" ([`axe_composite.h:177`](https://github.com/gbresearch/axe/blob/771ddc1ba8c0afa940529a1de8e6dd64bc0ada74/include/axe_composite.h#L177)), and a
 rule without one isn't accepted by the operators. Worth saying explicitly, together with the error message.
 
 ## M. Recursive rules (pp. 18-20)
 
 ### M1. `r_expression_t` — **Typo**
-The forward-declared rule is `r_expression`, not `r_expression_t` ([`axe_expression.h:46`](../include/axe_expression.h#L46)).
+The forward-declared rule is `r_expression`, not `r_expression_t` ([`axe_expression.h:46`](https://github.com/gbresearch/axe/blob/771ddc1ba8c0afa940529a1de8e6dd64bc0ada74/include/axe_expression.h#L46)).
 
 ### M2. The `operator()` in the excerpt lacks `const` — **Incomplete**
 The excerpt shows `result<It> operator() (It i1, It i2)`; the code has `const`, and without it the rules wouldn't be
@@ -437,7 +449,7 @@ GitHub instead, e.g. `include/axe_expression.h`.
 ### N1. A one-argument extractor receives the end of the match — **Wrong**
 **Guide**: "If the extractor accepts one argument then the iterator pointing to the beginning of matched rule will be passed".
 
-**Code** ([`axe_extractor.h:74-76`](../include/axe_extractor.h#L74-L76)): it receives `i.position`, the position after
+**Code** ([`axe_extractor.h:74-76`](https://github.com/gbresearch/axe/blob/771ddc1ba8c0afa940529a1de8e6dd64bc0ada74/include/axe_extractor.h#L74-L76)): it receives `i.position`, the position after
 the match.
 
 **Evidence**: `parse(r_alphastr() >> [&](auto i) -> void { … }, "abc123"s)` receives offset 3, not 0.
@@ -451,7 +463,7 @@ Each matched range is converted to `C::value_type` with the same conversions as 
 
 ### N3. `A >> t`, extracting into a variable — **Missing**
 The guide uses `r_ident() >> name` but never says which types `t` can have. `operator>>` with an lvalue that isn't an
-extractor uses `e_value_t<T>` ([`axe_extractor.h:109-469`](../include/axe_extractor.h#L109-L469)):
+extractor uses `e_value_t<T>` ([`axe_extractor.h:109-469`](https://github.com/gbresearch/axe/blob/771ddc1ba8c0afa940529a1de8e6dd64bc0ada74/include/axe_extractor.h#L109-L469)):
 
 | Type of `t` | Value stored |
 |---|---|
@@ -477,7 +489,7 @@ add the same note for extractors, with the remedy of writing `-> void`.
 
 ### O1. The custom extractor class doesn't compile when used — **Broken example**
 Its `operator()` isn't `const`. The `static_assert(axe::is_extractor_v<custom>)` in the guide passes, but `r_extractor_t`
-calls the extractor from its own `const operator()` ([`axe_extractor.h:62-81`](../include/axe_extractor.h#L62-L81)), so
+calls the extractor from its own `const operator()` ([`axe_extractor.h:62-81`](https://github.com/gbresearch/axe/blob/771ddc1ba8c0afa940529a1de8e6dd64bc0ada74/include/axe_extractor.h#L62-L81)), so
 `rule >> custom(n)` fails with "no matching function for call to invoke(const custom&, …)".
 
 **Suggested fix** (verified): declare it `void operator()(Iterator i1, Iterator i2) const`; the counter is a reference
@@ -593,19 +605,23 @@ GCC 13.3 and Clang 18.1.
 
 | # | Defect | Location | Suggested change |
 |---|---|---|---|
-| S1 | `r_bool([] { return false; })` always matches: a lambda without captures converts to a function pointer and then to `bool`, so it is taken for a constant `true` | [`axe_terminal.h:69-78`](../include/axe_terminal.h#L69-L78) | test the function-object cases before the convertible-to-`bool` case |
-| S2 | `r_bool` never matches at the end of the input (E4) | [`axe_terminal.h:74`](../include/axe_terminal.h#L74) | remove the `i1 == i2` check (`r_bool` doesn't read input), or document it |
-| S3 | `r_bin` compares the bytes as `unsigned char` with `char` input, so any byte of 0x80 or more never matches on platforms where `char` is signed: `r_bin(1.0)` doesn't match its own bytes in a `std::string`, but does in a `std::vector<unsigned char>` | [`axe_terminal.h:158`](../include/axe_terminal.h#L158) | compare with `static_cast<unsigned char>(*i1)` |
-| S4 | `parse_tree` of a constrained rule whose rule has no parse-tree `operator()` doesn't compile, e.g. `parse_tree(_ident / [](auto, auto) { return true; }, s)` | [`axe_composite.h:871`](../include/axe_composite.h#L871) | call `detail::parse_tree_invoke(r_, itp)` instead of `r_(itp)` |
-| S5 | `write_xml` closes `<optional matched="true">` with `/optional>` | [`axe_utility.h:151`](../include/axe_utility.h#L151) | `</optional>` |
-| S6 | `r_many(literal, literal, …)` constructs the separator with the type of the first literal: `r_many('a', ", ")` doesn't compile | [`axe_terminal_function.h:123`](../include/axe_terminal_function.h#L123) | `detail::r_lit_traits_t<R2>(r2)` |
-| S7 | `*A`, `+A` and `A % B` don't stop when an iteration consumes no input, so they never finish when A (and B) can match empty input: `parse(*(*_d), "abc"s)` doesn't terminate | [`axe_composite.h:385`](../include/axe_composite.h#L385) | stop when the position doesn't advance, or warn in the guide |
-| S8 | The comment on `operator^` says "but not both (`r1 & !r2 \| !r1 & r2`)"; the implementation and the guide match permutations | [`axe_operator.h:138`](../include/axe_operator.h#L138) | fix the comment |
-| S9 | The parse-tree `operator()` of `r_find` evaluates the rule twice at the starting position | [`axe_composite.h:512-520`](../include/axe_composite.h#L512-L520) | advance before re-evaluating |
-| S10 | Extracting into a `std::string_view` doesn't compile with `std::string` iterators: it constructs the view from an iterator and a length | [`axe_extractor.h:156`](../include/axe_extractor.h#L156) | construct it from `&*i1` (contiguous input) or restrict it to pointers in the guide |
-| S11 | `get_as<D>(first, last)` default-initializes `D d;`, so for an arithmetic `D` and an empty range it returns an indeterminate value | [`axe_utility.h:216`](../include/axe_utility.h#L216) | value-initialize: `D d{};` |
+| S1 | `r_bool([] { return false; })` always matches: a lambda without captures converts to a function pointer and then to `bool`, so it is taken for a constant `true` | [`axe_terminal.h:69-78`](https://github.com/gbresearch/axe/blob/771ddc1ba8c0afa940529a1de8e6dd64bc0ada74/include/axe_terminal.h#L69-L78) | test the function-object cases before the convertible-to-`bool` case |
+| S2 | `r_bool` never matches at the end of the input (E4) | [`axe_terminal.h:74`](https://github.com/gbresearch/axe/blob/771ddc1ba8c0afa940529a1de8e6dd64bc0ada74/include/axe_terminal.h#L74) | remove the `i1 == i2` check (`r_bool` doesn't read input), or document it |
+| S3 | `r_bin` compares the bytes as `unsigned char` with `char` input, so any byte of 0x80 or more never matches on platforms where `char` is signed: `r_bin(1.0)` doesn't match its own bytes in a `std::string`, but does in a `std::vector<unsigned char>` | [`axe_terminal.h:158`](https://github.com/gbresearch/axe/blob/771ddc1ba8c0afa940529a1de8e6dd64bc0ada74/include/axe_terminal.h#L158) | compare with `static_cast<unsigned char>(*i1)` |
+| S4 | `parse_tree` of a constrained rule whose rule has no parse-tree `operator()` doesn't compile, e.g. `parse_tree(_ident / [](auto, auto) { return true; }, s)` | [`axe_composite.h:871`](https://github.com/gbresearch/axe/blob/771ddc1ba8c0afa940529a1de8e6dd64bc0ada74/include/axe_composite.h#L871) | call `detail::parse_tree_invoke(r_, itp)` instead of `r_(itp)` |
+| S5 | `write_xml` closes `<optional matched="true">` with `/optional>` | [`axe_utility.h:151`](https://github.com/gbresearch/axe/blob/771ddc1ba8c0afa940529a1de8e6dd64bc0ada74/include/axe_utility.h#L151) | `</optional>` |
+| S6 | `r_many(literal, literal, …)` constructs the separator with the type of the first literal: `r_many('a', ", ")` doesn't compile | [`axe_terminal_function.h:123`](https://github.com/gbresearch/axe/blob/771ddc1ba8c0afa940529a1de8e6dd64bc0ada74/include/axe_terminal_function.h#L123) | `detail::r_lit_traits_t<R2>(r2)` |
+| S7 | `*A`, `+A` and `A % B` don't stop when an iteration consumes no input, so they never finish when A (and B) can match empty input: `parse(*(*_d), "abc"s)` doesn't terminate | [`axe_composite.h:385`](https://github.com/gbresearch/axe/blob/771ddc1ba8c0afa940529a1de8e6dd64bc0ada74/include/axe_composite.h#L385) | stop when the position doesn't advance, or warn in the guide |
+| S8 | The comment on `operator^` says "but not both (`r1 & !r2 \| !r1 & r2`)"; the implementation and the guide match permutations | [`axe_operator.h:138`](https://github.com/gbresearch/axe/blob/771ddc1ba8c0afa940529a1de8e6dd64bc0ada74/include/axe_operator.h#L138) | fix the comment |
+| S9 | The parse-tree `operator()` of `r_find` evaluates the rule twice at the starting position | [`axe_composite.h:512-520`](https://github.com/gbresearch/axe/blob/771ddc1ba8c0afa940529a1de8e6dd64bc0ada74/include/axe_composite.h#L512-L520) | advance before re-evaluating |
+| S10 | Extracting into a `std::string_view` doesn't compile with `std::string` iterators: it constructs the view from an iterator and a length | [`axe_extractor.h:156`](https://github.com/gbresearch/axe/blob/771ddc1ba8c0afa940529a1de8e6dd64bc0ada74/include/axe_extractor.h#L156) | construct it from `&*i1` (contiguous input) or restrict it to pointers in the guide |
+| S11 | `get_as<D>(first, last)` default-initializes `D d;`, so for an arithmetic `D` and an empty range it returns an indeterminate value | [`axe_utility.h:216`](https://github.com/gbresearch/axe/blob/771ddc1ba8c0afa940529a1de8e6dd64bc0ada74/include/axe_utility.h#L216) | value-initialize: `D d{};` |
+| S12 | `parse_tree` of `A % B` consumed a trailing separator (`_d % ','` on `"1,2,x"` consumed 4 characters, `parse` 3), and evaluated the separator once more after the last allowed occurrence | [`axe_composite.h:400-436`](https://github.com/gbresearch/axe/blob/771ddc1ba8c0afa940529a1de8e6dd64bc0ada74/include/axe_composite.h#L400-L436) | end the match after the last occurrence; stop before the separator at the maximum |
+| S13 | `r_many('x', 2)` took `2` for a binary separator instead of the minimum count, and then didn't compile (S6) | [`axe_terminal_function.h:113-124`](https://github.com/gbresearch/axe/blob/771ddc1ba8c0afa940529a1de8e6dd64bc0ada74/include/axe_terminal_function.h#L113-L124) | exclude integer separators, as the rule-and-literal overload does |
+| S14 | `r_ident` and `r_sequence` raise GCC 14 `-Wdangling-reference` with `const char*` input | [`axe_terminal.h:479`](https://github.com/gbresearch/axe/blob/771ddc1ba8c0afa940529a1de8e6dd64bc0ada74/include/axe_terminal.h#L479) | store the result by value |
+| S15 | `r_advance` with a `size_t` offset, as `e_length` stores it, raises `-Wsign-compare` | [`axe_terminal.h:526-527`](https://github.com/gbresearch/axe/blob/771ddc1ba8c0afa940529a1de8e6dd64bc0ada74/include/axe_terminal.h#L526-L527) | convert the offset to `difference_type` once |
 
-B1 (`A && B`) and N1 (one-argument extractor) could also be fixed in the code instead of the guide.
+B1 (`A && B`) and N1 (one-argument extractor) could also be fixed in the code instead of the guide; B1 was (see *Resolution*).
 
 ## Recommendations
 

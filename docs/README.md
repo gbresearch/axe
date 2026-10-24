@@ -6,7 +6,7 @@
 | `reference-template.html`, `reference.css` | Page layout of the PDF: pandoc template and print stylesheet |
 | `linebreaks.lua` | pandoc filter for formats other than HTML, e.g. Word |
 | `AXE-Reference-v2.1.pdf` | The published v2.1 reference, made with Microsoft Word before the Markdown source existed |
-| `AXE-Reference-Review.md` | Review of the v2.1 reference against the current headers, with suggested fixes |
+| `AXE-Reference-Review.md` | Review of the v2.1 reference against the code, the fixes, and how each finding was resolved |
 
 ## Editing the reference
 
